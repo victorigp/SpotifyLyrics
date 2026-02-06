@@ -1,5 +1,7 @@
 # SpotifyLyrics 🎵
 
+Desplegado en https://spotify-lyrics-three.vercel.app/
+
 Una aplicación web moderna y minimalista para visualizar letras de canciones sincronizadas en tiempo real, utilizando la API de Last.fm para detectar lo que escuchas en Spotify.
 
 ## ✨ Características
