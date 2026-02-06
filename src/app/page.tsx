@@ -96,6 +96,8 @@ export default function Home() {
       const newOffset = prev + amount;
       if (track) {
         setCachedOffset(track.artist, track.name, newOffset);
+        // Async save to KV (permanent)
+        saveToKV(track.artist, track.name, newOffset, username);
       }
       return newOffset;
     });
@@ -131,6 +133,26 @@ export default function Home() {
     } catch (e) { }
   };
 
+  // --- KV HELPERS (Vercel KV) ---
+  const saveToKV = async (artist: string, track: string, offset?: number, user?: string, lyrics?: any) => {
+    try {
+      await fetch('/api/kv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artist, track, offset, username: user, lyrics })
+      });
+    } catch (e) { console.error("Error saving to KV", e); }
+  };
+
+  const fetchFromKV = async (artist: string, track: string, user?: string) => {
+    try {
+      const url = `/api/kv?artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(track)}&username=${encodeURIComponent(user || '')}`;
+      const res = await fetch(url);
+      if (res.ok) return await res.json();
+    } catch (e) { console.error("Error fetching from KV", e); }
+    return null;
+  };
+
 
   useEffect(() => {
     if (!isSet || !username) return;
@@ -138,6 +160,7 @@ export default function Home() {
     lockingTrackNameRef.current = null;
 
     const fetchNowPlaying = async () => {
+      const requestStartTime = Date.now();
       try {
         const res = await fetch(`/api/now-playing?username=${encodeURIComponent(username)}`);
         if (!res.ok) return;
@@ -154,13 +177,17 @@ export default function Home() {
             setTrack(data.track);
             setLyrics(null);
 
+            setLyricOffset(0);
+
             const savedOffset = getCachedOffset(data.track.artist, data.track.name);
             setLyricOffset(savedOffset);
 
             setCurrentSearchType("auto");
 
-            const now = Date.now();
-            setTrackStartTime(USE_LASTFM_COMPENSATION ? (now - LASTFM_LATENCY_OFFSET) : now);
+            // Use requestStartTime to eliminate network latency variability
+            const startEstimation = USE_LASTFM_COMPENSATION ? (requestStartTime - LASTFM_LATENCY_OFFSET) : requestStartTime;
+            setTrackStartTime(startEstimation);
+
             fetchLyricsWithSteps(data.track);
           }
         }
@@ -198,15 +225,38 @@ export default function Home() {
       duration: "0",
     });
 
-    const handleSuccess = (data: any, type: string) => {
+    const handleSuccess = (data: any, type: string, skipKVSave = false) => {
       if (signal.aborted) return;
       setLyrics(data);
       setCurrentSearchType(type);
       setLoadingStatus(null);
       setCachedProvider(currentTrack.artist, currentTrack.name, type);
+
+      // Save globally if it's a fresh find
+      if (!skipKVSave) {
+        saveToKV(currentTrack.artist, currentTrack.name, undefined, undefined, data);
+      }
     };
 
     if (!specificType) {
+      // 0. CHECK KV CACHE (GLOBAL LYRICS + USER OFFSET)
+      setLoadingStatus("Consultando memoria permanente...");
+      const kvData = await fetchFromKV(currentTrack.artist, currentTrack.name, username);
+
+      if (kvData?.lyrics && !signal.aborted) {
+        if (kvData.offset !== undefined) {
+          setLyricOffset(kvData.offset);
+          setCachedOffset(currentTrack.artist, currentTrack.name, kvData.offset);
+        }
+        handleSuccess(kvData.lyrics, "cloud", true);
+        return;
+      }
+
+      if (kvData?.offset !== undefined && !signal.aborted) {
+        setLyricOffset(kvData.offset);
+      }
+
+      // 1. Check Local Preference
       const cachedType = getCachedProvider(currentTrack.artist, currentTrack.name);
 
       if (cachedType) {
