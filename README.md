@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SpotifyLyrics 🎵
 
-## Getting Started
+Una aplicación web moderna y minimalista para visualizar letras de canciones sincronizadas en tiempo real, utilizando la API de Last.fm para detectar lo que escuchas en Spotify.
 
-First, run the development server:
+## ✨ Características
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Sincronización en Tiempo Real**: Detecta automáticamente la canción que estás escuchando en Spotify a través de Last.fm.
+- **Modos de Visualización**:
+  - **Modo Karaoke**: Enfoque en la línea actual con tipografía dinámica y de gran tamaño.
+  - **Letras Completas**: Vista clásica con scroll automático suave.
+- **Ajuste de Sincronización**: Control manual (+/- 0.5s) para corregir desfases de latencia.
+- **Memoria Inteligente**: Recuerda qué proveedor de letras funcionó mejor para cada canción para cargas instantáneas en el futuro.
+- **Diseño Premium**: Interfaz oscura, minimalista y responsiva, optimizada para móviles y pantallas completas.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 Instalación y Uso Local
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1.  **Clonar el repositorio**:
+    ```bash
+    git clone https://github.com/victorigp/SpotifyLyrics.git
+    cd SpotifyLyrics
+    ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2.  **Instalar dependencias**:
+    ```bash
+    npm install
+    ```
 
-## Learn More
+3.  **Configurar variables de entorno**:
+    Crea un archivo `.env.local` en la raíz con tu API Key de Last.fm:
+    ```env
+    LASTFM_API_KEY=tu_api_key_aqui
+    ```
 
-To learn more about Next.js, take a look at the following resources:
+4.  **Ejecutar en desarrollo**:
+    ```bash
+    npm run dev
+    ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🛠️ Tecnologías
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Next.js 15+** (App Router)
+- **React 19**
+- **Tailwind CSS 4**
+- **API de Last.fm**
+- **LRCLIB & Lyrics.ovh** (Proveedores de letras)
 
-## Deploy on Vercel
+## 🌐 Despliegue
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Optimizado para desplegar en **Vercel**. Asegúrate de configurar la variable de entorno `LASTFM_API_KEY` en el panel de control de Vercel.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+Creado por [victorigp](https://github.com/victorigp)

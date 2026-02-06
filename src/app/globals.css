@@ -1,26 +1,91 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
+    --background: #171717;
     --foreground: #ededed;
-  }
+}
+
+/* HIDE NEXT.JS DEV TOOLS */
+[data-nextjs-toast],
+[data-nextjs-toast-errors-parent],
+[data-nextjs-dev-overlay-container],
+nextjs-portal,
+#nextjs-dev-overlay,
+.nextjs-dev-overlay-container {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+    color: var(--foreground);
+    background: black;
+    font-family: var(--font-geist-sans), Arial, sans-serif;
+    overflow: hidden;
+    /* Prevent pull-to-refresh on mobile */
+}
+
+@layer utilities {
+    .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .text-shadow-black {
+        text-shadow:
+            -1px -1px 0 #000,
+            1px -1px 0 #000,
+            -1px 1px 0 #000,
+            1px 1px 0 #000;
+    }
+}
+
+/* CUSTOM SCROLLBAR HIDING */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* MASK FADE EFFECT */
+.custom-mask {
+    mask-image: linear-gradient(to bottom,
+            transparent 0%,
+            black 15%,
+            black 85%,
+            transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom,
+            transparent 0%,
+            black 15%,
+            black 85%,
+            transparent 100%);
+}
+
+.mask-fade {
+    mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+}
+
+/* ANIMATIONS */
+@keyframes float-fade {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -40%) scale(0.8);
+    }
+
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -80%) scale(1);
+    }
+}
+
+.animate-float-fade {
+    animation: float-fade 1s ease-out forwards;
 }
