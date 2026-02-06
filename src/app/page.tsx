@@ -92,7 +92,13 @@ export default function Home() {
   };
 
   const adjustOffset = (amount: number) => {
-    setLyricOffset(prev => prev + amount);
+    setLyricOffset(prev => {
+      const newOffset = prev + amount;
+      if (track) {
+        setCachedOffset(track.artist, track.name, newOffset);
+      }
+      return newOffset;
+    });
     triggerFeedback(amount > 0 ? `+${amount}s` : `${amount}s`, amount > 0 ? 'positive' : 'negative');
   };
 
@@ -107,6 +113,21 @@ export default function Home() {
     try {
       const key = `lyrics_provider_${artist}_${name}`;
       localStorage.setItem(key, provider);
+    } catch (e) { }
+  };
+
+  const getCachedOffset = (artist: string, name: string) => {
+    try {
+      const key = `lyrics_offset_${artist}_${name}`;
+      const saved = localStorage.getItem(key);
+      return saved ? parseFloat(saved) : 0;
+    } catch (e) { return 0; }
+  };
+
+  const setCachedOffset = (artist: string, name: string, offset: number) => {
+    try {
+      const key = `lyrics_offset_${artist}_${name}`;
+      localStorage.setItem(key, offset.toString());
     } catch (e) { }
   };
 
@@ -132,7 +153,10 @@ export default function Home() {
 
             setTrack(data.track);
             setLyrics(null);
-            setLyricOffset(0);
+
+            const savedOffset = getCachedOffset(data.track.artist, data.track.name);
+            setLyricOffset(savedOffset);
+
             setCurrentSearchType("auto");
 
             const now = Date.now();
@@ -387,8 +411,13 @@ export default function Home() {
             <span className="text-xl md:text-2xl">⛶</span>
           </button>
 
-          <button onClick={() => setKaraokeMode(!karaokeMode)} title="Modo Karaoke" className={`transition group p-2 drop-shadow-md flex justify-center ${karaokeMode ? "text-green-400" : "text-gray-300 hover:text-white"}`}>
+          <button onClick={() => setKaraokeMode(!karaokeMode)} title="Modo Karaoke" className={`transition group p-2 drop-shadow-md flex justify-center relative ${karaokeMode ? "text-green-400" : "text-gray-300 hover:text-white"}`}>
             <span className="text-xl md:text-2xl">🎤</span>
+            {!karaokeMode && (
+              <span className="absolute inset-0 flex items-center justify-center text-red-500 text-3xl md:text-4xl pointer-events-none font-bold select-none drop-shadow-md" style={{ textShadow: "0 0 4px black" }}>
+                ✕
+              </span>
+            )}
           </button>
 
           <button onClick={handleRetrySearch} title="Re-buscar Letra" className="text-gray-300 hover:text-white transition group p-2 min-w-[30px] drop-shadow-md flex justify-center hover:rotate-180 duration-500">
