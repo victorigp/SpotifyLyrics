@@ -66,7 +66,9 @@ export default function Home() {
 
   const handleSetUser = () => {
     if (username.trim()) {
-      localStorage.setItem("lastfm_username", username.trim());
+      const cleanUser = username.trim();
+      localStorage.setItem("lastfm_username", cleanUser);
+      setUsername(cleanUser);
       setIsSet(true);
     }
   };
@@ -148,21 +150,21 @@ export default function Home() {
     } catch (e) { }
   };
 
-  // --- KV HELPERS (Vercel KV) ---
   const saveToKV = async (artist: string, track: string, offset?: number, user?: string, lyrics?: any, source?: string) => {
     try {
       await fetch('/api/kv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ artist, track, offset, username: user, lyrics, source })
+        body: JSON.stringify({ artist, track, offset, username: user?.trim(), lyrics, source }),
+        cache: 'no-store'
       });
     } catch (e) { console.error("Error saving to KV", e); }
   };
 
   const fetchFromKV = async (artist: string, track: string, user?: string, source?: string) => {
     try {
-      const url = `/api/kv?artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(track)}&username=${encodeURIComponent(user || '')}&source=${source || 'lastfm'}`;
-      const res = await fetch(url);
+      const url = `/api/kv?artist=${encodeURIComponent(artist.trim())}&track=${encodeURIComponent(track.trim())}&username=${encodeURIComponent(user?.trim() || '')}&source=${source || 'lastfm'}`;
+      const res = await fetch(url, { cache: 'no-store' });
       if (res.ok) return await res.json();
     } catch (e) { console.error("Error fetching from KV", e); }
     return null;
