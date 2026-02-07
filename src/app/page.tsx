@@ -621,8 +621,15 @@ export default function Home() {
             )}
           </button>
 
-          <button onClick={handleRetrySearch} title="Re-buscar Letra" className="text-gray-300 hover:text-white transition group p-1 md:p-2 min-w-[24px] md:min-w-[30px] drop-shadow-md flex justify-center hover:rotate-180 duration-500 shrink-0">
-            <span className="text-2xl md:text-4xl font-bold">↻</span>
+          <button
+            onClick={handleRetrySearch}
+            title="Re-buscar Letra"
+            className="text-gray-300 hover:text-white transition group p-1 md:p-2 drop-shadow-md flex justify-center relative hover:scale-110 active:scale-95 duration-200 shrink-0"
+          >
+            <div className="relative w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
+              <span className="text-2xl md:text-4xl text-white font-bold drop-shadow-[0_0_2px_black]" style={{ textShadow: "0 0 4px black" }}>♫</span>
+              <span className="absolute -bottom-1 -right-1 text-xs md:text-lg font-bold bg-black/50 rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center drop-shadow-lg text-white">↻</span>
+            </div>
           </button>
 
           <div className="flex justify-center gap-2 md:gap-8 items-center shrink-0">
