@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useLayoutEffect } from "react";
 import Image from "next/image";
 import { useSession, signIn, signOut } from "next-auth/react";
+import VideoBackground from "./VideoBackground";
 
 interface Track {
   id: string;
@@ -33,6 +34,15 @@ export default function Home() {
   const [username, setUsername] = useState("");
   const [isSet, setIsSet] = useState(false);
   const [karaokeMode, setKaraokeMode] = useState(true);
+  const [videoEnabled, setVideoEnabled] = useState(true); // New state for video toggle
+  const [skipVideoTrigger, setSkipVideoTrigger] = useState(0);
+  const [videoStatus, setVideoStatus] = useState<'searching' | 'playing' | 'error'>('playing');
+
+  const handleSkipVideo = () => {
+    if (videoEnabled) {
+      setSkipVideoTrigger(prev => prev + 1);
+    }
+  };
   const [lyricOffset, setLyricOffset] = useState(0);
 
   const [track, setTrack] = useState<Track | null>(null);
@@ -41,6 +51,39 @@ export default function Home() {
 
   const [trackStartTime, setTrackStartTime] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
+  // Screen Wake Lock
+  useEffect(() => {
+    let wakeLock: any = null;
+
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+          console.log('Wake Lock is active');
+        }
+      } catch (err: any) {
+        console.error(`${err.name}, ${err.message}`);
+      }
+    };
+
+    requestWakeLock();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      if (wakeLock) {
+        wakeLock.release();
+        wakeLock = null;
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const [loadingStatus, setLoadingStatus] = useState<string | null>(null);
   const [feedbacks, setFeedbacks] = useState<FloatingFeedback[]>([]);
@@ -61,6 +104,12 @@ export default function Home() {
     if (stored) {
       setUsername(stored);
       setIsSet(true);
+    }
+
+    // Load video preference
+    const savedVideoIdx = localStorage.getItem("video_enabled");
+    if (savedVideoIdx !== null) {
+      setVideoEnabled(savedVideoIdx === "true");
     }
   }, [session]);
 
@@ -105,6 +154,12 @@ export default function Home() {
     setTimeout(() => {
       setFeedbacks(prev => prev.filter(f => f.id !== id));
     }, 1000);
+  };
+
+  const toggleVideoMode = () => {
+    const newState = !videoEnabled;
+    setVideoEnabled(newState);
+    localStorage.setItem("video_enabled", String(newState));
   };
 
   const adjustOffset = (amount: number) => {
@@ -200,6 +255,7 @@ export default function Home() {
 
             setTrack(data.track);
             setLyrics(null);
+            setSkipVideoTrigger(0); // Reset Skip Counter
 
             setLyricOffset(0);
 
@@ -429,17 +485,39 @@ export default function Home() {
 
   return (
     <div className="relative h-dvh w-screen overflow-hidden bg-black text-white flex flex-col">
+      {/* Video Searching Indicator */}
+      {videoEnabled && videoStatus === 'searching' && (
+        <div className="absolute left-6 top-1/2 -translate-y-1/2 z-50 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-3 animate-pulse border border-white/10 shadow-xl">
+          <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+          <span className="text-sm font-medium tracking-wide">Buscando video...</span>
+        </div>
+      )}
+
       <div className="absolute inset-0 z-0">
         {track?.albumArt && (
           <Image
+            key={track.albumArt} // Force immediate remount on change
             src={track.albumArt}
             alt="Background"
             fill
-            className="object-cover opacity-60 blur-sm"
+            className="object-cover opacity-50 blur-sm scale-105" // Removed transitions for instant switch
             priority
           />
         )}
         <div className="absolute inset-0 bg-black/20" />
+        {/* Background Video Layer - Always mounted to preserve state */}
+        {track && (
+          <div className={`absolute inset-0 transition-opacity duration-500 ${videoEnabled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            <VideoBackground
+              key={track.name + track.artist}
+              artist={track.artist}
+              track={track.name}
+              userId={session?.user?.email || session?.user?.name || "anonymous"}
+              skipTrigger={skipVideoTrigger}
+              onLoadStatus={setVideoStatus}
+            />
+          </div>
+        )}
       </div>
 
       <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden">
@@ -502,16 +580,39 @@ export default function Home() {
           )}
         </main>
 
-        <footer className="h-[5%] min-h-[50px] shrink-0 flex justify-center items-center gap-4 md:gap-12 px-2 z-20 pb-safe w-full">
-          <button onClick={handleClearUser} title="Inicio" className="text-gray-300 hover:text-white transition group p-2 min-w-[30px] drop-shadow-md flex justify-center">
-            <span className="text-xl md:text-2xl">🏠</span>
+        <footer className="h-[5%] min-h-[50px] shrink-0 flex justify-center items-center gap-1 md:gap-8 px-1 z-20 pb-safe w-full overflow-x-auto no-scrollbar">
+          <button onClick={handleClearUser} title="Inicio" className="text-gray-300 hover:text-white transition group p-1 md:p-2 min-w-[24px] md:min-w-[30px] drop-shadow-md flex justify-center shrink-0">
+            <span className="text-lg md:text-2xl">🏠</span>
           </button>
 
-          <button onClick={toggleFullScreen} title="Pantalla Completa" className="text-gray-300 hover:text-white transition group p-2 min-w-[30px] drop-shadow-md flex justify-center">
-            <span className="text-xl md:text-2xl">⛶</span>
+          <button onClick={toggleFullScreen} title="Pantalla Completa" className="text-gray-300 hover:text-white transition group p-1 md:p-2 min-w-[24px] md:min-w-[30px] drop-shadow-md flex justify-center shrink-0">
+            <span className="text-lg md:text-2xl">⛶</span>
           </button>
 
-          <button onClick={() => setKaraokeMode(!karaokeMode)} title="Modo Karaoke" className={`transition group p-2 drop-shadow-md flex justify-center relative ${karaokeMode ? "text-green-400" : "text-gray-300 hover:text-white"}`}>
+          {/* Toggle Video Button */}
+          <button onClick={toggleVideoMode} title={videoEnabled ? "Desactivar Vídeo" : "Activar Vídeo"} className="transition group p-1 md:p-2 drop-shadow-md flex justify-center relative hover:scale-110 active:scale-95 duration-200 shrink-0">
+            <span className="text-xl md:text-2xl">{videoEnabled ? "🎬" : "📵"}</span>
+            {!videoEnabled && (
+              <span className="absolute inset-0 flex items-center justify-center text-red-500 text-3xl md:text-4xl pointer-events-none font-bold select-none drop-shadow-md" style={{ textShadow: "0 0 4px black" }}>
+                ✕
+              </span>
+            )}
+          </button>
+
+          {/* Manual Video Skip Button (Clapperboard + Refresh) */}
+          <button
+            onClick={handleSkipVideo}
+            disabled={!videoEnabled}
+            title="Buscar siguiente vídeo"
+            className={`transition group p-1 md:p-2 drop-shadow-md flex justify-center relative duration-200 shrink-0 ${!videoEnabled ? 'opacity-30 grayscale cursor-not-allowed' : 'hover:scale-110 active:scale-95 hover:rotate-12'}`}
+          >
+            <div className="relative w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
+              <span className="text-xl md:text-2xl opacity-80">🎬</span>
+              <span className="absolute -bottom-1 -right-1 text-xs md:text-lg font-bold bg-black/50 rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center drop-shadow-lg text-white">↻</span>
+            </div>
+          </button>
+
+          <button onClick={() => setKaraokeMode(!karaokeMode)} title="Modo Karaoke" className={`transition group p-1 md:p-2 drop-shadow-md flex justify-center relative shrink-0 ${karaokeMode ? "text-green-400" : "text-gray-300 hover:text-white"}`}>
             <span className="text-xl md:text-2xl">🎤</span>
             {!karaokeMode && (
               <span className="absolute inset-0 flex items-center justify-center text-red-500 text-3xl md:text-4xl pointer-events-none font-bold select-none drop-shadow-md" style={{ textShadow: "0 0 4px black" }}>
@@ -520,15 +621,15 @@ export default function Home() {
             )}
           </button>
 
-          <button onClick={handleRetrySearch} title="Re-buscar Letra" className="text-gray-300 hover:text-white transition group p-2 min-w-[30px] drop-shadow-md flex justify-center hover:rotate-180 duration-500">
-            <span className="text-3xl md:text-4xl font-bold">↻</span>
+          <button onClick={handleRetrySearch} title="Re-buscar Letra" className="text-gray-300 hover:text-white transition group p-1 md:p-2 min-w-[24px] md:min-w-[30px] drop-shadow-md flex justify-center hover:rotate-180 duration-500 shrink-0">
+            <span className="text-2xl md:text-4xl font-bold">↻</span>
           </button>
 
-          <div className="flex justify-center gap-4 md:gap-8 items-center">
+          <div className="flex justify-center gap-2 md:gap-8 items-center shrink-0">
             <button
               onClick={() => adjustOffset(0.5)}
               title="Adelantar 0.5s"
-              className="text-green-600 hover:text-green-500 transition text-2xl md:text-3xl font-black bg-transparent px-1 md:px-2"
+              className="text-green-600 hover:text-green-500 transition text-lg md:text-3xl font-black bg-transparent px-1 md:px-2"
               style={{
                 filter: "drop-shadow(0 0 2px black)",
                 textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000"
@@ -539,7 +640,7 @@ export default function Home() {
             <button
               onClick={() => adjustOffset(-0.5)}
               title="Retrasar 0.5s"
-              className="text-red-600 hover:text-red-500 transition text-2xl md:text-3xl font-black bg-transparent px-1 md:px-2"
+              className="text-red-600 hover:text-red-500 transition text-lg md:text-3xl font-black bg-transparent px-1 md:px-2"
               style={{
                 filter: "drop-shadow(0 0 2px black)",
                 textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000"

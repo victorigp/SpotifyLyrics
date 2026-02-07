@@ -13,7 +13,11 @@ Una aplicación web para visualizar letras de canciones sincronizadas en tiempo 
   - **Modo Karaoke**: Enfoque en la línea actual con tipografía dinámica y de gran tamaño.
   - **Letras Completas**: Vista clásica con scroll automático suave.
 - **Ajuste de Sincronización**: Control manual (+/- 0.5s) para corregir desfases de latencia.
-- **Memoria Inteligente**: Recuerda qué proveedor de letras y que desfase de latencia funcionó mejor para cada canción para cargas instantáneas en el futuro.
+- **Fondo de Video Dinámico 🎥**:
+  - Busca y reproduce automáticamente el video oficial (o mejor coincidencia) de la canción en YouTube.
+  - **Sistema de Preferencias Inteligente**: Si saltas un video manualmente, la aplicación recordará tu elección para la próxima vez (persistente por usuario).
+  - **Cola Natural**: Mantiene el orden original de resultados de YouTube, permitiéndote explorar alternativas fácilmente.
+- **Memoria Inteligente**: Recuerda qué proveedor de letras, qué desfase de latencia y qué video funcionó mejor para cada canción.
 - **Diseño Responsive**: Interfaz oscura y minimalista, optimizada para móviles y pantallas completas.
 
 ## 🚀 Instalación y Uso Local
@@ -30,7 +34,7 @@ Una aplicación web para visualizar letras de canciones sincronizadas en tiempo 
     ```
 
 3.  **Configurar variables de entorno**:
-    Crea un archivo `.env.local` en la raíz con tu API Key de Last.fm:
+    Crea un archivo `.env.local` en la raíz con tus claves:
     ```env
     # Para Last.fm, consíguela en: https://www.last.fm/api/account/create
     LASTFM_API_KEY=tu_api_key_aqui
@@ -42,8 +46,11 @@ Una aplicación web para visualizar letras de canciones sincronizadas en tiempo 
     NEXTAUTH_URL=http://localhost:3000
     NEXTAUTH_SECRET=una_frase_aleatoria_muy_larga_para_seguridad
 
-    # Para la BDD de Redis (para almacenar las letras y desfases de latencia), consíguela en: https://cloud.redis.io/#/databases
+    # Para la BDD de Redis (letras, latencia y preferencias de video), consíguela en: https://cloud.redis.io/#/databases
     REDIS_URL=redis://default:tu_password_aqui
+
+    # Para buscar videos de fondo (Google Cloud Console > YouTube Data API v3)
+    YOUTUBE_API_KEY=tu_youtube_api_key
     ```
 
 4.  **Ejecutar en desarrollo**:
@@ -56,7 +63,7 @@ Una aplicación web para visualizar letras de canciones sincronizadas en tiempo 
 - **Next.js 15+** (App Router)
 - **React 19**
 - **Tailwind CSS 4**
-- **API de Last.fm, Spotify y Redis**
+- **API de Last.fm, Spotify, YouTube y Redis**
 - **LRCLIB & Lyrics.ovh** (Proveedores de letras)
 
 ## 🌐 Despliegue
