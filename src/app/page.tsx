@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useLayoutEffect } from "react";
 import Image from "next/image";
+import { useSession, signIn, signOut } from "next-auth/react";
 
 interface Track {
   id: string;
@@ -47,13 +48,21 @@ export default function Home() {
   const lockingTrackNameRef = useRef<string | null>(null);
   const searchAbortControllerRef = useRef<AbortController | null>(null);
 
+  const { data: session } = useSession();
+
   useEffect(() => {
+    // Priority to Spotify Session
+    if (session?.accessToken) {
+      setIsSet(true);
+      return;
+    }
+
     const stored = localStorage.getItem("lastfm_username");
     if (stored) {
       setUsername(stored);
       setIsSet(true);
     }
-  }, []);
+  }, [session]);
 
   const handleSetUser = () => {
     if (username.trim()) {
@@ -63,11 +72,16 @@ export default function Home() {
   };
 
   const handleClearUser = () => {
-    localStorage.removeItem("lastfm_username");
-    setIsSet(false);
+    if (session) {
+      signOut();
+    } else {
+      localStorage.removeItem("lastfm_username");
+      setIsSet(false);
+      setUsername("");
+    }
+
     setTrack(null);
     setLyrics(null);
-    setUsername("");
     setLyricOffset(0);
     setTrackStartTime(null);
     lockingTrackNameRef.current = null;
@@ -96,8 +110,9 @@ export default function Home() {
       const newOffset = prev + amount;
       if (track) {
         setCachedOffset(track.artist, track.name, newOffset);
-        // Async save to KV (permanent)
-        saveToKV(track.artist, track.name, newOffset, username);
+        // Async save to KV (permanent) -> Send source
+        const currentSource = session?.accessToken ? "spotify" : "lastfm";
+        saveToKV(track.artist, track.name, newOffset, username || session?.user?.name || "unknown", undefined, currentSource);
       }
       return newOffset;
     });
@@ -134,19 +149,19 @@ export default function Home() {
   };
 
   // --- KV HELPERS (Vercel KV) ---
-  const saveToKV = async (artist: string, track: string, offset?: number, user?: string, lyrics?: any) => {
+  const saveToKV = async (artist: string, track: string, offset?: number, user?: string, lyrics?: any, source?: string) => {
     try {
       await fetch('/api/kv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ artist, track, offset, username: user, lyrics })
+        body: JSON.stringify({ artist, track, offset, username: user, lyrics, source })
       });
     } catch (e) { console.error("Error saving to KV", e); }
   };
 
-  const fetchFromKV = async (artist: string, track: string, user?: string) => {
+  const fetchFromKV = async (artist: string, track: string, user?: string, source?: string) => {
     try {
-      const url = `/api/kv?artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(track)}&username=${encodeURIComponent(user || '')}`;
+      const url = `/api/kv?artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(track)}&username=${encodeURIComponent(user || '')}&source=${source || 'lastfm'}`;
       const res = await fetch(url);
       if (res.ok) return await res.json();
     } catch (e) { console.error("Error fetching from KV", e); }
@@ -155,14 +170,21 @@ export default function Home() {
 
 
   useEffect(() => {
-    if (!isSet || !username) return;
+    if ((!isSet || !username) && !session?.accessToken) return;
 
     lockingTrackNameRef.current = null;
 
     const fetchNowPlaying = async () => {
       const requestStartTime = Date.now();
       try {
-        const res = await fetch(`/api/now-playing?username=${encodeURIComponent(username)}`);
+        let url = `/api/now-playing?`;
+        if (session?.accessToken) {
+          url += `token=${session.accessToken}`;
+        } else {
+          url += `username=${encodeURIComponent(username)}`;
+        }
+
+        const res = await fetch(url);
         if (!res.ok) return;
 
         const data = await res.json();
@@ -184,9 +206,18 @@ export default function Home() {
 
             setCurrentSearchType("auto");
 
-            // Use requestStartTime to eliminate network latency variability
-            const startEstimation = USE_LASTFM_COMPENSATION ? (requestStartTime - LASTFM_LATENCY_OFFSET) : requestStartTime;
-            setTrackStartTime(startEstimation);
+            // --- SYNC STRATEGY SPLIT ---
+            if (session?.accessToken && data.progress_ms !== undefined) {
+              // SPOTIFY MODE: Absolute Precision
+              // trackStartTime = now - progress
+              const absoluteStartTime = Date.now() - data.progress_ms;
+              setTrackStartTime(absoluteStartTime);
+            } else {
+              // LAST.FM MODE: Estimation
+              // Use requestStartTime to eliminate network latency variability
+              const startEstimation = USE_LASTFM_COMPENSATION ? (requestStartTime - LASTFM_LATENCY_OFFSET) : requestStartTime;
+              setTrackStartTime(startEstimation);
+            }
 
             fetchLyricsWithSteps(data.track);
           }
@@ -241,7 +272,9 @@ export default function Home() {
     if (!specificType) {
       // 0. CHECK KV CACHE (GLOBAL LYRICS + USER OFFSET)
       setLoadingStatus("Consultando memoria permanente...");
-      const kvData = await fetchFromKV(currentTrack.artist, currentTrack.name, username);
+
+      const currentSource = session?.accessToken ? "spotify" : "lastfm";
+      const kvData = await fetchFromKV(currentTrack.artist, currentTrack.name, username || session?.user?.name || "unknown", currentSource);
 
       if (kvData?.lyrics && !signal.aborted) {
         if (kvData.offset !== undefined) {
@@ -360,6 +393,20 @@ export default function Home() {
       <div className="flex flex-col items-center justify-center min-vh-100 h-dvh p-4 bg-black text-white">
         <h1 className="text-4xl font-bold mb-8 text-green-500 text-center">Spotify Lyrics</h1>
         <div className="flex flex-col gap-4 max-w-sm w-full">
+          <button
+            onClick={() => signIn("spotify")}
+            className="px-8 py-4 bg-[#1DB954] text-black rounded-lg font-bold hover:bg-green-400 transition flex items-center justify-center gap-2"
+          >
+            <svg viewBox="0 0 24 24" className="w-6 h-6" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" /></svg>
+            Entrar con Spotify
+          </button>
+
+          <div className="flex items-center gap-4 my-2">
+            <div className="h-px bg-gray-700 flex-1"></div>
+            <span className="text-gray-500 text-sm">O</span>
+            <div className="h-px bg-gray-700 flex-1"></div>
+          </div>
+
           <input
             type="text"
             placeholder="Introduce tu usuario de Last.fm"
@@ -367,8 +414,9 @@ export default function Home() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
           />
+
           <button onClick={handleSetUser} className="px-8 py-4 bg-green-600 rounded-lg font-bold hover:bg-green-700 transition">
-            Comenzar a Escuchar
+            Entrar con Last.fm
           </button>
         </div>
       </div>

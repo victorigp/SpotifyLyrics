@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     const artist = searchParams.get("artist")?.toLowerCase().trim();
     const track = searchParams.get("track")?.toLowerCase().trim();
     const username = searchParams.get("username")?.toLowerCase().trim();
+    const source = searchParams.get("source")?.toLowerCase().trim() || "lastfm"; // Default to lastfm
 
     if (!artist || !track) {
         return NextResponse.json({ error: "Missing artist or track" }, { status: 400 });
@@ -28,7 +29,8 @@ export async function GET(req: NextRequest) {
     try {
         const redis = await getRedisClient();
         const lyricsKey = `lyrics:${artist}:${track}`;
-        const offsetKey = username ? `offset:${username}:${artist}:${track}` : null;
+        // Include source in the key to separate offsets
+        const offsetKey = username ? `offset:${source}:${username}:${artist}:${track}` : null;
 
         // Perform lookups
         const lyricsRaw = await redis.get(lyricsKey);
@@ -52,11 +54,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { artist, track, lyrics, offset, username } = body;
+        const { artist, track, lyrics, offset, username, source = "lastfm" } = body;
 
         const cleanArtist = artist?.toLowerCase().trim();
         const cleanTrack = track?.toLowerCase().trim();
         const cleanUsername = username?.toLowerCase().trim();
+        const cleanSource = source?.toLowerCase().trim();
 
         if (!cleanArtist || !cleanTrack) {
             return NextResponse.json({ error: "Missing artist or track" }, { status: 400 });
@@ -70,9 +73,9 @@ export async function POST(req: NextRequest) {
             await redis.set(lyricsKey, JSON.stringify(lyrics));
         }
 
-        // Save offset per user if provided
+        // Save offset per user AND source if provided
         if (typeof offset === 'number' && cleanUsername) {
-            const offsetKey = `offset:${cleanUsername}:${cleanArtist}:${cleanTrack}`;
+            const offsetKey = `offset:${cleanSource}:${cleanUsername}:${cleanArtist}:${cleanTrack}`;
             await redis.set(offsetKey, offset.toString());
         }
 
