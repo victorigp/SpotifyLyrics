@@ -1,3 +1,5 @@
+<img width="958" height="477" alt="image" src="https://github.com/user-attachments/assets/0bd4b86d-3740-48da-86fe-8788f54b8617" />
+
 # SpotifyLyrics 🎵
 
 Desplegado en https://spotify-lyrics-three.vercel.app/
