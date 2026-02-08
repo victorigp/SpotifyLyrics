@@ -10,9 +10,10 @@ interface VideoBackgroundProps {
     skipTrigger?: number;
     onLoadStatus?: (status: 'searching' | 'playing' | 'error') => void;
     onError?: () => void;
+    onProgress?: (progress: { current: number; total: number; isDiscoveryComplete: boolean }) => void;
 }
 
-export default function VideoBackground({ artist, track, userId, skipTrigger, onLoadStatus, onError: onParentError }: VideoBackgroundProps) {
+export default function VideoBackground({ artist, track, userId, skipTrigger, onLoadStatus, onError: onParentError, onProgress }: VideoBackgroundProps) {
     const [videoQueue, setVideoQueue] = useState<string[]>([]);
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
     const [isReady, setIsReady] = useState(false);
@@ -23,22 +24,23 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
         onLoadStatusRef.current = onLoadStatus;
     }, [onLoadStatus]);
 
-    const badIndicesRef = useRef<Set<number>>(new Set());
+    const playedVideoIdsRef = useRef<Set<string>>(new Set());
+    const [remoteDiscoveryComplete, setRemoteDiscoveryComplete] = useState(false);
     const manuallySkippedRef = useRef(false);
 
     const currentVideoId = videoQueue[currentVideoIndex] || null;
 
     const getNextValidIndex = useCallback((startIndex: number, queueLength: number) => {
         if (queueLength === 0) return -1;
-        let nextIndex = (startIndex + 1) % queueLength;
-        let attempts = 0;
-        while (badIndicesRef.current.has(nextIndex) && attempts < queueLength) {
-            nextIndex = (nextIndex + 1) % queueLength;
-            attempts++;
-        }
-        if (attempts >= queueLength) return -1;
-        return nextIndex;
+        return (startIndex + 1) % queueLength;
     }, []);
+
+    const checkDiscoveryComplete = useCallback((queue: string[]) => {
+        // If remote complete, return true
+        if (remoteDiscoveryComplete) return true;
+        // If we have played all videos in the current queue
+        return queue.length > 0 && queue.every(id => playedVideoIdsRef.current.has(id));
+    }, [remoteDiscoveryComplete]);
 
     const lastSkipTriggerRef = useRef(skipTrigger || 0);
 
@@ -50,22 +52,28 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
             const nextIndex = getNextValidIndex(currentVideoIndex, videoQueue.length);
 
             if (nextIndex !== -1) {
+                const nextId = videoQueue[nextIndex];
                 setCurrentVideoIndex(nextIndex);
+                playedVideoIdsRef.current.add(nextId);
                 setIsReady(false);
                 if (onLoadStatusRef.current) onLoadStatusRef.current('searching');
+                if (onProgress) onProgress({ current: nextIndex + 1, total: videoQueue.length, isDiscoveryComplete: checkDiscoveryComplete(videoQueue) });
             }
         }
-    }, [skipTrigger, videoQueue.length, currentVideoIndex, getNextValidIndex]);
+    }, [skipTrigger, videoQueue.length, currentVideoIndex, getNextValidIndex, checkDiscoveryComplete]);
 
     useEffect(() => {
         lastSavedIdRef.current = null;
-        badIndicesRef.current.clear();
+        lastSavedIdRef.current = null;
+        playedVideoIdsRef.current.clear();
+        setRemoteDiscoveryComplete(false);
         manuallySkippedRef.current = false;
         setVideoQueue([]);
         setCurrentVideoIndex(0);
         setIsReady(false);
         if (onLoadStatusRef.current) onLoadStatusRef.current('searching');
-    }, [artist, track, userId]);
+        if (onProgress) onProgress({ current: 0, total: 0, isDiscoveryComplete: false }); // Reset progress
+    }, [artist, track, userId, onProgress]);
 
     useEffect(() => {
         let active = true;
@@ -81,10 +89,11 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
                     if (active) {
                         if (data.videoIds && data.videoIds.length > 0) {
                             setVideoQueue(data.videoIds);
+                            setRemoteDiscoveryComplete(!!data.isDiscoveryComplete);
 
-                            // Navigation Logic: Jump to preferred video if exists
+                            // Navigation Logic
                             let startIndex = 0;
-                            const prefId = data.preferredVideoId || data.debugPref;
+                            const prefId = data.preferredVideoId;
 
                             if (prefId) {
                                 const foundIndex = data.videoIds.indexOf(prefId);
@@ -93,9 +102,15 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
                                 }
                             }
 
+                            const startId = data.videoIds[startIndex];
                             setCurrentVideoIndex(startIndex);
-                            badIndicesRef.current.clear();
+                            playedVideoIdsRef.current.clear();
+                            if (startId) playedVideoIdsRef.current.add(startId);
                             setIsReady(false);
+
+                            // Calculate initial completion status
+                            const isComplete = !!data.isDiscoveryComplete;
+                            if (onProgress) onProgress({ current: startIndex + 1, total: data.videoIds.length, isDiscoveryComplete: isComplete });
                         } else {
                             if (onParentError) onParentError();
                             if (onLoadStatusRef.current) onLoadStatusRef.current('error');
@@ -177,7 +192,7 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
     };
 
     const onStateChange = (event: any) => {
-        if (event.data === 1 || event.data === 3) handlePlay(event);
+        if (event.data === 1) handlePlay(event);
         if (event.data === 0) {
             event.target.playVideo();
         }
@@ -200,25 +215,34 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
             }).catch(err => console.error("Error reporting failure", err));
         }
 
-        badIndicesRef.current.add(currentVideoIndex);
+        const failedId = currentVideoId;
 
-        if (videoQueue.length > 0) {
-            let nextIndex = (currentVideoIndex + 1) % videoQueue.length;
-            let attempts = 0;
-            while (badIndicesRef.current.has(nextIndex) && attempts < videoQueue.length) {
-                nextIndex = (nextIndex + 1) % videoQueue.length;
-                attempts++;
-            }
+        // Remove failed video from queue
+        // This is key: Reduce the queue size so "Total" reflects remaining candidates.
+        const newQueue = videoQueue.filter(id => id !== failedId);
+        setVideoQueue(newQueue);
 
-            if (attempts < videoQueue.length) {
-                setCurrentVideoIndex(nextIndex);
-                setIsReady(false);
-                return;
-            }
+        if (newQueue.length === 0) {
+            if (onParentError) onParentError();
+            if (onLoadStatusRef.current) onLoadStatusRef.current('error');
+            return;
         }
 
-        if (onParentError) onParentError();
-        if (onLoadStatusRef.current) onLoadStatusRef.current('error');
+        // Find next index (stay on same if middle, reset to 0 if end)
+        let nextIndex = currentVideoIndex;
+        if (nextIndex >= newQueue.length) nextIndex = 0;
+
+        const nextId = newQueue[nextIndex];
+        setCurrentVideoIndex(nextIndex);
+        playedVideoIdsRef.current.add(nextId);
+        setIsReady(false);
+
+        if (onProgress) onProgress({
+            current: nextIndex + 1,
+            total: newQueue.length,
+            isDiscoveryComplete: checkDiscoveryComplete(newQueue)
+        });
+        if (onLoadStatusRef.current) onLoadStatusRef.current('searching');
     };
 
     if (!currentVideoId) return null;

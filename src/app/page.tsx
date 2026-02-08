@@ -36,7 +36,8 @@ export default function Home() {
   const [karaokeMode, setKaraokeMode] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true); // New state for video toggle
   const [skipVideoTrigger, setSkipVideoTrigger] = useState(0);
-  const [videoStatus, setVideoStatus] = useState<'searching' | 'playing' | 'error'>('playing');
+  const [videoStatus, setVideoStatus] = useState<'searching' | 'playing' | 'error'>('searching');
+  const [videoProgress, setVideoProgress] = useState({ current: 0, total: 0, isDiscoveryComplete: false });
 
   const handleSkipVideo = () => {
     if (videoEnabled) {
@@ -256,6 +257,7 @@ export default function Home() {
             setTrack(data.track);
             setLyrics(null);
             setSkipVideoTrigger(0); // Reset Skip Counter
+            setVideoProgress({ current: 0, total: 0, isDiscoveryComplete: false }); // Reset Progress
 
             setLyricOffset(0);
 
@@ -509,6 +511,7 @@ export default function Home() {
               userId={session?.user?.email || session?.user?.name || "anonymous"}
               skipTrigger={skipVideoTrigger}
               onLoadStatus={setVideoStatus}
+              onProgress={setVideoProgress}
             />
           </div>
         )}
@@ -544,7 +547,11 @@ export default function Home() {
           {videoEnabled && videoStatus === 'searching' && (
             <div className="absolute left-0 top-0 z-50 bg-black/60 backdrop-blur-md px-4 py-2 rounded-br-2xl flex items-center gap-3 animate-pulse border-b border-r border-white/10 shadow-xl">
               <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
-              <span className="text-sm font-medium tracking-wide">Buscando video...</span>
+              <span className="text-sm font-medium tracking-wide">
+                {videoProgress.isDiscoveryComplete && videoProgress.total > 0
+                  ? `Cargando video ${videoProgress.current}/${videoProgress.total}`
+                  : "Buscando video..."}
+              </span>
             </div>
           )}
           {loadingStatus ? (

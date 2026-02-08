@@ -141,12 +141,20 @@ export async function GET(req: NextRequest) {
         // 3. Ensure PREFERRED video is in the list (if valid and not added yet)
         if (preferredVideoId) addIfValid(preferredVideoId);
 
+        // Check if all found videos are already known (verified or failed)
+        let isDiscoveryComplete = false;
+        if (videoIds.length > 0) {
+            const knownIds = new Set([...(verifiedVideos || []), ...Array.from(failedSet)]);
+            isDiscoveryComplete = videoIds.every((id: string) => knownIds.has(id));
+        }
+
         if (client.isOpen) await client.disconnect();
 
-        // Return queue + preferred ID
+        // Return queue + preferred ID + discovery status
         return NextResponse.json({
             videoIds: Array.from(finalQueue),
-            preferredVideoId: preferredVideoId
+            preferredVideoId: preferredVideoId,
+            isDiscoveryComplete
         });
 
     } catch (error) {
