@@ -546,6 +546,16 @@ export default function Home() {
         </header>
 
         <main className="flex-1 h-[90%] w-full flex justify-center items-center px-2 md:px-8 overflow-hidden relative">
+          {/* User Indicator - Top Right of Main Body (Always Visible) */}
+          {(session?.user?.name || username) && (
+            <div className="absolute right-0 top-0 z-50 bg-black/60 backdrop-blur-md px-4 py-2 rounded-bl-2xl border-b border-l border-white/10 shadow-xl flex items-center gap-2">
+              <span className="text-xs text-gray-400 font-medium">Usuario:</span>
+              <span className="text-sm font-bold text-green-400 tracking-wide">
+                {session?.user?.name || username}
+              </span>
+            </div>
+          )}
+
           {track ? (
             <>
               {/* Video Searching Indicator - Top Left of Main Body */}
