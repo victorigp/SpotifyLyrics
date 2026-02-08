@@ -485,13 +485,7 @@ export default function Home() {
 
   return (
     <div className="relative h-dvh w-screen overflow-hidden bg-black text-white flex flex-col">
-      {/* Video Searching Indicator */}
-      {videoEnabled && videoStatus === 'searching' && (
-        <div className="absolute left-6 top-1/2 -translate-y-1/2 z-50 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-3 animate-pulse border border-white/10 shadow-xl">
-          <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
-          <span className="text-sm font-medium tracking-wide">Buscando video...</span>
-        </div>
-      )}
+
 
       <div className="absolute inset-0 z-0">
         {track?.albumArt && (
@@ -546,6 +540,13 @@ export default function Home() {
         </header>
 
         <main className="flex-1 h-[90%] w-full flex justify-center items-center px-2 md:px-8 overflow-hidden relative">
+          {/* Video Searching Indicator - Top Left of Main Body */}
+          {videoEnabled && videoStatus === 'searching' && (
+            <div className="absolute left-0 top-0 z-50 bg-black/60 backdrop-blur-md px-4 py-2 rounded-br-2xl flex items-center gap-3 animate-pulse border-b border-r border-white/10 shadow-xl">
+              <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+              <span className="text-sm font-medium tracking-wide">Buscando video...</span>
+            </div>
+          )}
           {loadingStatus ? (
             <div className="text-gray-200 font-medium text-xl italic bg-black/40 p-6 rounded-xl backdrop-blur-md animate-pulse">
               {loadingStatus}
