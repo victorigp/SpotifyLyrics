@@ -581,7 +581,7 @@ export default function Home() {
           )}
         </main>
 
-        <footer className="h-[5%] min-h-[50px] shrink-0 flex justify-center items-center gap-1 md:gap-8 px-1 z-20 pb-safe w-full overflow-x-auto no-scrollbar">
+        <footer className="h-[5%] min-h-[50px] shrink-0 flex justify-between items-center px-4 md:px-8 z-20 pb-safe w-full overflow-x-auto no-scrollbar">
           <button onClick={handleClearUser} title="Inicio" className="text-gray-300 hover:text-white transition group p-1 md:p-2 min-w-[24px] md:min-w-[30px] drop-shadow-md flex justify-center shrink-0">
             <span className="text-lg md:text-2xl">🏠</span>
           </button>
