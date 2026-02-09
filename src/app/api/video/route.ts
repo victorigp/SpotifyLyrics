@@ -20,7 +20,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const artist = searchParams.get('artist');
     const track = searchParams.get('track');
-    const userId = searchParams.get('userId'); // Optional: for personalized preference
+    const userIdRaw = searchParams.get('userId');
+    const userId = userIdRaw ? userIdRaw.toLowerCase().trim() : null;
 
     if (!artist || !track) {
         return NextResponse.json({ error: 'Missing artist or track' }, { status: 400 });
@@ -178,9 +179,10 @@ export async function POST(req: NextRequest) {
         client = await getRedisClient();
         const safeArtist = artist.toLowerCase().trim();
         const safeTrack = track.toLowerCase().trim();
+        const safeUserId = userId.toLowerCase().trim();
 
         // Safe Artist + Track Key
-        const prefCacheKey = `video:pref:${userId}:${safeArtist}:${safeTrack}`;
+        const prefCacheKey = `video:pref:${safeUserId}:${safeArtist}:${safeTrack}`;
         const verifiedCacheKey = `video:verified:${safeArtist}:${safeTrack}`;
         const failedCacheKey = `video:failed:${safeArtist}:${safeTrack}`;
 
