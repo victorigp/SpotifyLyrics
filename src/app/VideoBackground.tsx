@@ -261,7 +261,7 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
                     iframeClassName="w-full h-full object-cover"
                 />
             </div>
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
         </div>
     );
 }

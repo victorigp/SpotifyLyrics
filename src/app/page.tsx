@@ -806,7 +806,7 @@ function AutoSizeText({
         style={{
           fontSize: `${fontSize}px`,
           opacity: ready ? (opacity / 100) : 0,
-          textShadow: "0 4px 16px rgba(0,0,0,0.8)",
+          textShadow: "4px 4px 0px #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000",
           wordBreak: 'break-word',
           overflowWrap: 'break-word',
           maxWidth: '100%'
@@ -814,7 +814,7 @@ function AutoSizeText({
       >
         {content}
       </p>
-    </div>
+    </div >
   );
 }
 
@@ -856,7 +856,15 @@ function FullLyricsView({ lyrics, currentTime }: { lyrics: string; currentTime: 
   return (
     <div ref={scrollRef} className="h-full w-full overflow-y-auto px-2 py-10 flex flex-col items-center gap-6 no-scrollbar custom-mask">
       {lines!.map((line, i) => (
-        <p key={i} className={`transition-all duration-300 text-center max-w-3xl cursor-pointer ${i === activeIndex ? "text-3xl md:text-5xl font-bold text-white scale-105" : "text-xl md:text-3xl text-gray-400 blur-[0.5px] hover:blur-none hover:text-gray-300"}`}>
+        <p
+          key={i}
+          className={`transition-all duration-300 text-center max-w-3xl cursor-pointer ${i === activeIndex ? "text-3xl md:text-5xl font-bold text-white scale-105" : "text-xl md:text-3xl text-gray-400 blur-[0.5px] hover:blur-none hover:text-gray-300"}`}
+          style={{
+            textShadow: i === activeIndex
+              ? "2px 2px 0px #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000"
+              : undefined
+          }}
+        >
           {line.text}
         </p>
       ))}
