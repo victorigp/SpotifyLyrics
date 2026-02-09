@@ -18,6 +18,7 @@ nextjs-portal,
     pointer-events: none !important;
 }
 
+
 body {
     color: var(--foreground);
     background: black;
