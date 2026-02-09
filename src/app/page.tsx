@@ -748,11 +748,25 @@ function AutoSizeText({
   const textRef = useRef<HTMLParagraphElement>(null);
   const [fontSize, setFontSize] = useState(maxFontSize);
   const [ready, setReady] = useState(false);
+  const [resizeTrigger, setResizeTrigger] = useState(0);
 
+  // Re-run size calculation when text changes OR container resizes
   useLayoutEffect(() => {
     setReady(false);
     setFontSize(maxFontSize);
-  }, [text, maxFontSize]);
+  }, [text, maxFontSize, resizeTrigger]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+      setResizeTrigger(prev => prev + 1);
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
