@@ -1,4 +1,4 @@
-<img width="958" height="477" alt="image" src="https://github.com/user-attachments/assets/0bd4b86d-3740-48da-86fe-8788f54b8617" />
+<img width="1165" height="552" alt="image" src="https://github.com/user-attachments/assets/3eb485a0-79b8-4ec4-9276-c2f35163e063" />
 
 # SpotifyLyrics 🎵
 
