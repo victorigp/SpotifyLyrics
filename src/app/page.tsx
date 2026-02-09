@@ -529,7 +529,7 @@ export default function Home() {
               key={track.name + track.artist}
               artist={track.artist}
               track={track.name}
-              userId={session?.user?.email || session?.user?.name || "anonymous"}
+              userId={session?.user?.email || session?.user?.name || username || "anonymous"}
               skipTrigger={skipVideoTrigger}
               onLoadStatus={setVideoStatus}
               onProgress={setVideoProgress}
