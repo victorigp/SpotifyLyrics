@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useLayoutEffect } from "react";
+import { useEffect, useState, useRef, useLayoutEffect, useCallback } from "react";
 import Image from "next/image";
 import { useSession, signIn, signOut } from "next-auth/react";
 import VideoBackground from "./VideoBackground";
@@ -53,6 +53,46 @@ export default function Home() {
 
   const [trackStartTime, setTrackStartTime] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
+
+  // --- Controls Visibility Logic ---
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const controlsTimeoutRef = useRef<any>(null);
+
+  const showControls = useCallback(() => {
+    setControlsVisible(true);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    controlsTimeoutRef.current = setTimeout(() => {
+      setControlsVisible(false);
+    }, 5000);
+  }, []);
+
+  useEffect(() => {
+    const handleActivity = () => showControls();
+
+    window.addEventListener("click", handleActivity);
+    window.addEventListener("touchstart", handleActivity);
+    window.addEventListener("mousemove", handleActivity);
+    window.addEventListener("keydown", handleActivity);
+
+    showControls(); // Initial show
+
+    return () => {
+      window.removeEventListener("click", handleActivity);
+      window.removeEventListener("touchstart", handleActivity);
+      window.removeEventListener("mousemove", handleActivity);
+      window.removeEventListener("keydown", handleActivity);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+  }, [showControls]);
+
+  // Show controls when track changes
+  useEffect(() => {
+    showControls();
+  }, [track, showControls]);
+  // ---------------------------------
+
   // Screen Wake Lock
   useEffect(() => {
     // Detect iOS devices
@@ -556,7 +596,7 @@ export default function Home() {
       </div>
 
       <div className="relative z-10 flex flex-col h-full">
-        <header className="h-[5%] min-h-[40px] shrink-0 flex flex-col justify-center items-center px-4 text-center z-20 bg-black/20 backdrop-blur-sm">
+        <header className={`h-[5%] min-h-[40px] shrink-0 flex flex-col justify-center items-center px-4 text-center z-20 bg-black/20 backdrop-blur-sm transition-opacity duration-500 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
           {track ? (
             <div className="max-w-full">
               <h1 className="text-sm md:text-xl truncate drop-shadow-lg text-white">
@@ -640,7 +680,7 @@ export default function Home() {
           )}
         </main>
 
-        <footer className="h-[5%] min-h-[50px] shrink-0 flex justify-between items-center px-4 md:px-8 z-20 pb-safe w-full overflow-x-auto no-scrollbar">
+        <footer className={`h-[5%] min-h-[50px] shrink-0 flex justify-between items-center px-4 md:px-8 z-20 pb-safe w-full overflow-x-auto no-scrollbar transition-opacity duration-500 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
           <button onClick={handleClearUser} title="Inicio" className="text-gray-300 hover:text-white transition group p-1 md:p-2 min-w-[24px] md:min-w-[30px] drop-shadow-md flex justify-center shrink-0">
             <span className="text-lg md:text-2xl">🏠</span>
           </button>
