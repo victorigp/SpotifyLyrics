@@ -39,11 +39,11 @@ Una aplicación web para visualizar letras de canciones sincronizadas en tiempo 
     # Para Last.fm, consíguela en: https://www.last.fm/api/account/create
     LASTFM_API_KEY=tu_api_key_aqui
     
-    # Para Last.fm, consíguela en: https://developer.spotify.com/dashboard
+    # Para Spotify, consíguela en: https://developer.spotify.com/dashboard
     SPOTIFY_CLIENT_ID=tu_client_id_aqui
     SPOTIFY_CLIENT_SECRET=tu_client_secret_aqui
-    
-    NEXTAUTH_URL=http://localhost:3000
+    # NextAuth Configuration
+    NEXTAUTH_URL=la_url_de_la_web_aqui
     NEXTAUTH_SECRET=una_frase_aleatoria_muy_larga_para_seguridad
 
     # Para la BDD de Redis (letras, latencia y preferencias de video), consíguela en: https://cloud.redis.io/#/databases
@@ -68,7 +68,7 @@ Una aplicación web para visualizar letras de canciones sincronizadas en tiempo 
 
 ## 🌐 Despliegue
 
-Optimizado para desplegar en **Vercel**. Asegúrate de configurar las variables de entorno del punto 3 (cambiando NEXTAUTH_URL por la url real donde esté la web) en el panel de control de Vercel.
+Optimizado para desplegar en **Vercel**. Asegúrate de configurar las variables de entorno del punto 3 en el panel de control de Vercel.
 
 ---
 Creado por [victorigp](https://github.com/victorigp)
