@@ -28,7 +28,7 @@ export async function getLyricsLrclibStrict(
             duration: durationMs.toString(),
         });
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         // Strict search
         let response = await fetch(`${LRCLIB_API_URL}/get?${params}`, { signal: controller.signal });
@@ -52,7 +52,10 @@ export async function getLyricsLrclibFuzzy(
         const q = `${trackName} ${artistName}`;
         console.log(`[LRCLIB Fuzzy] Searching: ${q}`);
         let params = new URLSearchParams({ q: q });
-        let response = await fetch(`${LRCLIB_API_URL}/search?${params}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        let response = await fetch(`${LRCLIB_API_URL}/search?${params}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
         if (response.ok) {
             const results = await response.json();
             if (Array.isArray(results) && results.length > 0) {
@@ -73,7 +76,10 @@ export async function getLyricsOvh(
 ): Promise<LyricsData | null> {
     try {
         console.log(`[OVH] Searching: ${trackName} - ${artistName}`);
-        let response = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artistName)}/${encodeURIComponent(trackName)}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        let response = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artistName)}/${encodeURIComponent(trackName)}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
         if (response.ok) {
             const data = await response.json();
             if (data.lyrics) {

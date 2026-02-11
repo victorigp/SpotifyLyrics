@@ -371,6 +371,12 @@ export default function Home() {
 
 
   const fetchLyricsWithSteps = async (currentTrack: Track, specificType?: string) => {
+    const fetchWithTimeout = (url: string, options: RequestInit = {}) =>
+      Promise.race([
+        fetch(url, options),
+        new Promise<Response>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
+      ]);
+
     const controller = new AbortController();
     searchAbortControllerRef.current = controller;
     const signal = controller.signal;
@@ -392,6 +398,37 @@ export default function Home() {
       // Save globally if it's a fresh find
       if (!skipKVSave) {
         saveToKV(currentTrack.artist, currentTrack.name, undefined, undefined, data);
+      }
+    };
+
+    const runSearchSequence = async (startIndex: number) => {
+      const searchSequence = ["strict", "fuzzy", "ovh"];
+
+      for (let i = startIndex; i < searchSequence.length; i++) {
+        if (signal.aborted) return;
+        const type = searchSequence[i];
+
+        const displayText = type === "strict" ? "LRCLIB - Exacto" : type === "fuzzy" ? "LRCLIB - Difuso" : "Lyrics.ovh";
+        setLoadingStatus(`Buscando letra en ${displayText}...`);
+
+        try {
+          // alert(`Iniciando ${displayText}...`);
+          const res = await fetchWithTimeout(`/api/lyrics?${baseParams}&type=${type}`, { signal });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && !signal.aborted) {
+              handleSuccess(data, type);
+              return;
+            }
+          }
+        } catch (e) {
+          // alert(`Error/Timeout en ${displayText}: ` + e);
+        }
+      }
+
+      if (!signal.aborted) {
+        setLoadingStatus(null);
+        setCurrentSearchType("failed");
       }
     };
 
@@ -418,10 +455,13 @@ export default function Home() {
       // 1. Check Local Preference
       const cachedType = getCachedProvider(currentTrack.artist, currentTrack.name);
 
+      let startIdx = 0;
       if (cachedType) {
+        // Try cached type first, if fails, it will fall through to logic below? 
+        // Actually, let's just respect the cache as a "try first", if it fails we do the full sequence
         setLoadingStatus(`Cargando preferencia guardada (${cachedType})...`);
         try {
-          const res = await fetch(`/api/lyrics?${baseParams}&type=${cachedType}`, { signal });
+          const res = await fetchWithTimeout(`/api/lyrics?${baseParams}&type=${cachedType}`, { signal });
           if (res.ok) {
             const data = await res.json();
             if (data && !signal.aborted) {
@@ -433,67 +473,18 @@ export default function Home() {
       }
 
       setLyrics(null);
-
-      setLoadingStatus("Buscando letra en LRCLIB - Exacto...");
-      try {
-        const res = await fetch(`/api/lyrics?${baseParams}&type=strict`, { signal });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && !signal.aborted) {
-            handleSuccess(data, "strict");
-            return;
-          }
-        }
-      } catch (e) { }
-      if (signal.aborted) return;
-
-      setLoadingStatus("Buscando letra en LRCLIB - Difuso...");
-      try {
-        const res = await fetch(`/api/lyrics?${baseParams}&type=fuzzy`, { signal });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && !signal.aborted) {
-            handleSuccess(data, "fuzzy");
-            return;
-          }
-        }
-      } catch (e) { }
-      if (signal.aborted) return;
-
-      setLoadingStatus("Buscando letra en Lyrics.ovh...");
-      try {
-        const res = await fetch(`/api/lyrics?${baseParams}&type=ovh`, { signal });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && !signal.aborted) {
-            handleSuccess(data, "ovh");
-            return;
-          }
-        }
-      } catch (e) { }
-
-      if (!signal.aborted) {
-        setLoadingStatus(null);
-        setCurrentSearchType("failed");
-      }
+      await runSearchSequence(0);
 
     } else {
-      setCurrentSearchType(specificType);
-      const displayText = specificType === "strict" ? "LRCLIB - Exacto" : specificType === "fuzzy" ? "LRCLIB - Difuso" : "Lyrics.ovh";
-      setLoadingStatus(`Buscando letra en ${displayText}...`);
+      // Manual retry or specific start
+      const searchSequence = ["strict", "fuzzy", "ovh"];
+      let startIdx = searchSequence.indexOf(specificType);
+      // If not found or it's the last one, start from 0? 
+      // But typically handleRetrySearch handles the "next" logic. 
+      // If the user passes "fuzzy", it means they want to START from "fuzzy".
 
-      try {
-        const res = await fetch(`/api/lyrics?${baseParams}&type=${specificType}`, { signal });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && !signal.aborted) {
-            handleSuccess(data, specificType);
-          }
-        }
-      } catch (e: any) {
-        if (e.name !== 'AbortError') console.error(e);
-      }
-      if (!signal.aborted && !lyrics) setLoadingStatus(null);
+      if (startIdx === -1) startIdx = 0;
+      await runSearchSequence(startIdx);
     }
   }
 
