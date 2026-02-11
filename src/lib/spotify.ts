@@ -5,8 +5,12 @@ export async function getSpotifyNowPlaying(accessToken: string) {
         },
     });
 
-    if (res.status === 204 || res.status > 400) {
+    if (res.status === 204) {
         return null;
+    }
+
+    if (!res.ok) {
+        throw new Error(`Spotify API Error: ${res.status} ${res.statusText}`);
     }
 
     return res.json();

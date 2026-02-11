@@ -313,7 +313,7 @@ export default function Home() {
     return () => {
       clearInterval(interval);
     }
-  }, [isSet, username]);
+  }, [isSet, username, session]);
 
   useEffect(() => {
     if (!trackStartTime) return;

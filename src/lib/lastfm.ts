@@ -11,28 +11,27 @@ export interface LastFmTrack {
 }
 
 export async function getLastFmNowPlaying(username: string, apiKey: string) {
-    try {
-        const params = new URLSearchParams({
-            method: "user.getrecenttracks",
-            user: username,
-            api_key: apiKey,
-            format: "json",
-            limit: "1",
-        });
+    const params = new URLSearchParams({
+        method: "user.getrecenttracks",
+        user: username,
+        api_key: apiKey,
+        format: "json",
+        limit: "1",
+    });
 
-        const response = await fetch(`${LASTFM_API_URL}?${params}`);
+    const response = await fetch(`${LASTFM_API_URL}?${params}`);
 
-        if (!response.ok) {
-            console.error("Last.fm API Error:", response.statusText);
-            return null;
-        }
-
-        const data = await response.json();
-        const track = data.recenttracks?.track?.[0];
-
-        return track as LastFmTrack | undefined;
-    } catch (error) {
-        console.error("Error fetching Last.fm data:", error);
-        return null;
+    if (!response.ok) {
+        throw new Error(`Last.fm API Error: ${response.status} ${response.statusText}`);
     }
+
+    const data = await response.json();
+
+    if (data.error) {
+        throw new Error(`Last.fm API Error: ${data.message}`);
+    }
+
+    const track = data.recenttracks?.track?.[0];
+
+    return track as LastFmTrack | undefined;
 }

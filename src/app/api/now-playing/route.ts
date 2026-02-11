@@ -52,22 +52,30 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Server configuration error: Missing LASTFM_API_KEY." }, { status: 500 });
     }
 
-    const track = await getLastFmNowPlaying(username, apiKey);
+    try {
+        const track = await getLastFmNowPlaying(username, apiKey);
 
-    if (!track || !track["@attr"]?.nowplaying) {
-        return NextResponse.json({ isPlaying: false });
+        if (!track || !track["@attr"]?.nowplaying) {
+            return NextResponse.json({ isPlaying: false });
+        }
+
+        return NextResponse.json({
+            isPlaying: true,
+            source: "lastfm",
+            track: {
+                id: track.name + track.artist["#text"], // Fallback ID
+                name: track.name,
+                artist: track.artist["#text"],
+                album: track.album["#text"],
+                albumArt: track.image.find((i: any) => i.size === "extralarge")?.["#text"] || track.image[0]?.["#text"],
+                duration: 0,
+            },
+        });
+    } catch (error) {
+        console.error("Last.fm API Error:", error);
+        // Important: Return 500 so the frontend knows it was an error, NOT a "stop"
+        return NextResponse.json({ error: "Last.fm API Error" }, { status: 500 });
     }
 
-    return NextResponse.json({
-        isPlaying: true,
-        source: "lastfm",
-        track: {
-            id: track.name + track.artist["#text"], // Fallback ID
-            name: track.name,
-            artist: track.artist["#text"],
-            album: track.album["#text"],
-            albumArt: track.image.find((i: any) => i.size === "extralarge")?.["#text"] || track.image[0]?.["#text"],
-            duration: 0,
-        },
-    });
+
 }
