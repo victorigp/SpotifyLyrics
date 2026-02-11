@@ -609,7 +609,7 @@ export default function Home() {
         <main className="flex-1 h-[90%] w-full flex justify-center items-center px-2 md:px-8 overflow-hidden relative">
           {/* User Indicator - Top Right of Main Body (Always Visible) */}
           {(session?.user?.name || username) && (
-            <div className="absolute right-0 top-0 z-50 bg-black/60 backdrop-blur-md px-4 py-2 rounded-bl-2xl border-b border-l border-white/10 shadow-xl flex items-center gap-2">
+            <div className={`absolute right-0 top-0 z-50 bg-black/60 backdrop-blur-md px-4 py-2 rounded-bl-2xl border-b border-l border-white/10 shadow-xl flex items-center gap-2 transition-opacity duration-500 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
               <span className="text-xs font-bold text-white tracking-wide">
                 {session?.user?.name || username}
               </span>
