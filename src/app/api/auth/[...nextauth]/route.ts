@@ -52,7 +52,10 @@ export const authOptions: any = {
             clientId: process.env.SPOTIFY_CLIENT_ID || "",
             clientSecret: process.env.SPOTIFY_CLIENT_SECRET || "",
             authorization: {
-                params: { scope: SCOPES },
+                params: {
+                    scope: SCOPES,
+                    show_dialog: "true",
+                },
             },
         }),
     ],

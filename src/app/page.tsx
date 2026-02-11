@@ -264,6 +264,18 @@ export default function Home() {
         const data = await res.json();
 
         if (data.isPlaying && data.track) {
+          // --- CONTINUOUS SYNC (Every Poll) ---
+          if (session?.accessToken && data.progress_ms !== undefined) {
+            const absoluteStartTime = Date.now() - data.progress_ms;
+            setTrackStartTime(prev => {
+              // If unset, or drifted by > 1s (seek/pause), update it
+              if (!prev || Math.abs(prev - absoluteStartTime) > 1000) {
+                return absoluteStartTime;
+              }
+              return prev;
+            });
+          }
+
           if (!lockingTrackNameRef.current || lockingTrackNameRef.current !== data.track.name) {
             lockingTrackNameRef.current = data.track.name;
             if (searchAbortControllerRef.current) {
@@ -282,15 +294,8 @@ export default function Home() {
 
             setCurrentSearchType("auto");
 
-            // --- SYNC STRATEGY SPLIT ---
-            if (session?.accessToken && data.progress_ms !== undefined) {
-              // SPOTIFY MODE: Absolute Precision
-              // trackStartTime = now - progress
-              const absoluteStartTime = Date.now() - data.progress_ms;
-              setTrackStartTime(absoluteStartTime);
-            } else {
-              // LAST.FM MODE: Estimation
-              // Use requestStartTime to eliminate network latency variability
+            // LAST.FM MODE INITIAL SYNC (Only needed once per track)
+            if (!session?.accessToken) {
               const startEstimation = USE_LASTFM_COMPENSATION ? (requestStartTime - LASTFM_LATENCY_OFFSET) : requestStartTime;
               setTrackStartTime(startEstimation);
             }
