@@ -53,6 +53,35 @@ export default function Home() {
 
   const [trackStartTime, setTrackStartTime] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
+  const { data: session } = useSession();
+
+  // --- Queue & Preloading ---
+  const [queue, setQueue] = useState<Track[]>([]);
+  const [showQueue, setShowQueue] = useState(false);
+  const [preloadedTracks, setPreloadedTracks] = useState<Set<string>>(new Set());
+
+  const fetchQueue = async () => {
+    if (!session?.accessToken) return;
+    try {
+      const res = await fetch('/api/queue');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.queue) {
+          // Map Spotify queue to our Track interface
+          const mappedQueue: Track[] = data.queue.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            artist: item.artists[0].name,
+            album: item.album.name,
+            albumArt: item.album.images[0]?.url || "",
+          }));
+          setQueue(mappedQueue);
+        }
+      }
+    } catch (e) {
+      console.error("Error fetching queue", e);
+    }
+  };
 
   // --- Controls Visibility Logic ---
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -148,7 +177,7 @@ export default function Home() {
   const lockingTrackNameRef = useRef<string | null>(null);
   const searchAbortControllerRef = useRef<AbortController | null>(null);
 
-  const { data: session } = useSession();
+  const { data: session_deleted } = { data: null }; // Removed duplicated session
 
   useEffect(() => {
     // Priority to Spotify Session
@@ -370,7 +399,7 @@ export default function Home() {
   }, [trackStartTime]);
 
 
-  const fetchLyricsWithSteps = async (currentTrack: Track, specificType?: string) => {
+  const fetchLyricsWithSteps = async (currentTrack: Track, specificType?: string, backgroundMode = false) => {
     const fetchWithTimeout = (url: string, options: RequestInit = {}) =>
       Promise.race([
         fetch(url, options),
@@ -390,10 +419,13 @@ export default function Home() {
 
     const handleSuccess = (data: any, type: string, skipKVSave = false) => {
       if (signal.aborted) return;
-      setLyrics(data);
-      setCurrentSearchType(type);
-      setLoadingStatus(null);
-      setCachedProvider(currentTrack.artist, currentTrack.name, type);
+
+      if (!backgroundMode) {
+        setLyrics(data);
+        setCurrentSearchType(type);
+        setLoadingStatus(null);
+        setCachedProvider(currentTrack.artist, currentTrack.name, type);
+      }
 
       // Save globally if it's a fresh find
       if (!skipKVSave) {
@@ -409,7 +441,7 @@ export default function Home() {
         const type = searchSequence[i];
 
         const displayText = type === "strict" ? "LRCLIB - Exacto" : type === "fuzzy" ? "LRCLIB - Difuso" : "Lyrics.ovh";
-        setLoadingStatus(`Buscando letra en ${displayText}...`);
+        if (!backgroundMode) setLoadingStatus(`Buscando letra en ${displayText}...`);
 
         try {
           // alert(`Iniciando ${displayText}...`);
@@ -426,7 +458,7 @@ export default function Home() {
         }
       }
 
-      if (!signal.aborted) {
+      if (!signal.aborted && !backgroundMode) {
         setLoadingStatus(null);
         setCurrentSearchType("failed");
       }
@@ -434,7 +466,7 @@ export default function Home() {
 
     if (!specificType) {
       // 0. CHECK KV CACHE (GLOBAL LYRICS + USER OFFSET)
-      setLoadingStatus("Consultando memoria permanente...");
+      if (!backgroundMode) setLoadingStatus("Consultando memoria permanente...");
 
       const currentSource = session?.accessToken ? "spotify" : "lastfm";
       const kvData = await fetchFromKV(currentTrack.artist, currentTrack.name, username || session?.user?.name || "unknown", currentSource);
@@ -504,6 +536,32 @@ export default function Home() {
 
     fetchLyricsWithSteps(track, nextType);
   };
+
+  // --- Effects for Queue (Moved here to access fetchLyricsWithSteps) ---
+  useEffect(() => {
+    if (track && session?.accessToken) {
+      fetchQueue();
+    }
+  }, [track, session]);
+
+  useEffect(() => {
+    if (queue.length > 0) {
+      const nextTracks = queue.slice(0, 2);
+      nextTracks.forEach(t => {
+        const key = t.artist + t.name;
+        if (!preloadedTracks.has(key)) {
+          fetchLyricsWithSteps(t, undefined, true);
+          fetch(`/api/video?artist=${encodeURIComponent(t.artist)}&track=${encodeURIComponent(t.name)}&userId=${username || session?.user?.email || "anonymous"}`).catch(e => console.error("Preload video error", e));
+          setPreloadedTracks(prev => {
+            const newSet = new Set(prev);
+            newSet.add(key);
+            return newSet;
+          });
+        }
+      });
+    }
+  }, [queue]);
+  // -------------------------------------------------------------------
 
   if (!isSet) {
     return (
@@ -585,6 +643,42 @@ export default function Home() {
           </div>
         ))}
       </div>
+
+      {/* Queue Overlay */}
+      {showQueue && (
+        <div className="absolute inset-0 z-[60] bg-black/80 backdrop-blur-xl p-8 flex flex-col animate-in fade-in slide-in-from-bottom-10 duration-300">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+              <span className="text-[#1DB954]">☰</span> Cola de Reproducción
+            </h2>
+            <button onClick={() => setShowQueue(false)} className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition">
+              <span className="text-2xl">✕</span>
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto no-scrollbar space-y-2">
+            {queue.length === 0 ? (
+              <div className="text-gray-400 text-center mt-20 text-xl">La cola está vacía o no se pudo cargar.</div>
+            ) : (
+              queue.map((t, i) => (
+                <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition group">
+                  <div className="text-gray-400 font-mono text-xl font-bold w-8">{i + 1}</div>
+                  {t.albumArt && <img src={t.albumArt} alt={t.album} className="w-12 h-12 rounded shadow-md" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white font-bold truncate text-lg group-hover:text-[#1DB954] transition-colors">{t.name}</div>
+                    <div className="text-gray-400 truncate">{t.artist} • {t.album}</div>
+                  </div>
+                  {/* Status Indicator (Optional: Show if preloaded) */}
+                  {preloadedTracks.has(t.artist + t.name) && (
+                    <span className="text-xs bg-green-900/50 text-green-400 px-2 py-1 rounded border border-green-800">Listo</span>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
 
       <div className="relative z-10 flex flex-col h-full">
         <header className={`h-[5%] min-h-[40px] shrink-0 flex flex-col justify-center items-center px-4 text-center z-20 bg-black/20 backdrop-blur-sm transition-opacity duration-500 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
@@ -681,6 +775,19 @@ export default function Home() {
               <span className="text-lg md:text-2xl">⛶</span>
             </button>
           )}
+
+          {/* Queue Button */}
+          {session?.accessToken && (
+            <button
+              onClick={() => setShowQueue(!showQueue)}
+              title="Ver Cola"
+              className={`transition group p-1 md:p-2 drop-shadow-md flex justify-center shrink-0 ${showQueue ? 'text-[#1DB954] scale-110' : 'text-gray-300 hover:text-white'}`}
+            >
+              <span className="text-xl md:text-2xl">☰</span>
+            </button>
+          )}
+
+
 
           {/* Toggle Video Button */}
           <button onClick={toggleVideoMode} title={videoEnabled ? "Desactivar Vídeo" : "Activar Vídeo"} className="transition group p-1 md:p-2 drop-shadow-md flex justify-center relative hover:scale-110 active:scale-95 duration-200 shrink-0">
