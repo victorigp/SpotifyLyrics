@@ -70,7 +70,8 @@ export default function Home() {
   // ------------------
 
   const fetchQueue = async () => {
-    if (!session?.accessToken) return;
+    // Only premium users can access the queue endpoint reliably
+    if (!session?.accessToken || (session as any).product !== 'premium') return;
     try {
       const res = await fetch('/api/queue');
       if (res.ok) {
@@ -846,7 +847,7 @@ export default function Home() {
           )}
 
           {/* Queue Button */}
-          {session?.accessToken && (
+          {session?.accessToken && (session as any).product === 'premium' && (
             <button
               onClick={() => setShowQueue(!showQueue)}
               title="Ver Cola"

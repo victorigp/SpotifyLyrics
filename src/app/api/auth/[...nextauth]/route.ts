@@ -4,6 +4,8 @@ import SpotifyProvider from "next-auth/providers/spotify";
 const SCOPES = [
     "user-read-currently-playing",
     "user-read-playback-state",
+    "user-read-private",
+    "user-read-email"
 ].join(" ");
 
 async function refreshAccessToken(token: any) {
@@ -61,7 +63,7 @@ export const authOptions: any = {
     ],
     secret: process.env.NEXTAUTH_SECRET || "super_secret_dev_key_123",
     callbacks: {
-        async jwt({ token, account, user }: any) {
+        async jwt({ token, account, user, profile }: any) {
             // Initial sign in
             if (account && user) {
                 return {
@@ -69,6 +71,7 @@ export const authOptions: any = {
                     refreshToken: account.refresh_token,
                     accessTokenExpires: account.expires_at * 1000,
                     user,
+                    product: profile?.product,
                 }
             }
 
@@ -84,6 +87,7 @@ export const authOptions: any = {
             session.user = token.user
             session.accessToken = token.accessToken
             session.error = token.error
+            session.product = token.product
             return session
         },
     },

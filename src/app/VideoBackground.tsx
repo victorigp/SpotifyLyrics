@@ -124,13 +124,10 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
             }
         };
 
-        const timer = setTimeout(() => {
-            fetchVideo();
-        }, 1000);
+        fetchVideo();
 
         return () => {
             active = false;
-            clearTimeout(timer);
         };
     }, [artist, track, userId, onParentError]);
 
