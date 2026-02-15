@@ -412,7 +412,7 @@ export default function Home() {
     const fetchWithTimeout = (url: string, options: RequestInit = {}) =>
       Promise.race([
         fetch(url, options),
-        new Promise<Response>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
+        new Promise<Response>((_, reject) => setTimeout(() => reject(new Error('timeout')), backgroundMode ? 5000 : 10000))
       ]);
 
     const controller = new AbortController();
@@ -433,9 +433,8 @@ export default function Home() {
 
       if (backgroundMode) {
         addLog(`[Background Success] Found lyrics for ${currentTrack.name} using ${type}`);
-      }
-
-      if (!backgroundMode) {
+      } else {
+        addLog(`[UI Success] Found lyrics for ${currentTrack.name} using ${type}`);
         setLyrics(data);
         setCurrentSearchType(type);
         setLoadingStatus(null);
@@ -457,6 +456,8 @@ export default function Home() {
 
         const displayText = type === "strict" ? "LRCLIB - Exacto" : type === "fuzzy" ? "LRCLIB - Difuso" : "Lyrics.ovh";
         if (backgroundMode) addLog(`[Background Search] Searching ${currentTrack.name} in ${displayText}`);
+        else addLog(`[UI Search] Searching ${currentTrack.name} in ${displayText}`);
+
         if (!backgroundMode) setLoadingStatus(`Buscando letra en ${displayText}...`);
 
         try {
@@ -471,10 +472,12 @@ export default function Home() {
           }
         } catch (e: any) {
           if (backgroundMode) addLog(`[Background Error] ${displayText} failed: ${e.message || e}`);
+          else addLog(`[UI Error] ${displayText} failed: ${e.message || e}`);
         }
       }
 
       if (!signal.aborted && !backgroundMode) {
+        addLog(`[UI Failure] Could not find lyrics for ${currentTrack.name} after trying all providers.`);
         setLoadingStatus(null);
         setCurrentSearchType("failed");
       }
