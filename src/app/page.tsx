@@ -65,7 +65,7 @@ export default function Home() {
   const [showLogs, setShowLogs] = useState(false);
   const addLog = (msg: string) => {
     console.log(msg); // Keep console
-    setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 50));
+    setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 500));
   };
   // ------------------
 
@@ -362,6 +362,7 @@ export default function Home() {
             }
 
             setTrack(data.track);
+            addLog(`[State] Clearing lyrics because track changed`);
             setLyrics(null);
             setSkipVideoTrigger(0); // Reset Skip Counter
             setVideoProgress({ current: 0, total: 0, isDiscoveryComplete: false }); // Reset Progress
@@ -559,6 +560,13 @@ export default function Home() {
 
     fetchLyricsWithSteps(track, nextType);
   };
+
+  // --- Debug Lyrics State ---
+  useEffect(() => {
+    if (lyrics === null && track) {
+      addLog(`[State] Lyrics became NULL for "${track.name}"!`);
+    }
+  }, [lyrics, track]);
 
   // --- Effects for Queue (Moved here to access fetchLyricsWithSteps) ---
   useEffect(() => {
