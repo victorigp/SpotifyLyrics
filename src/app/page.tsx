@@ -515,7 +515,7 @@ export default function Home() {
       if (cachedType) {
         // Try cached type first, if fails, it will fall through to logic below? 
         // Actually, let's just respect the cache as a "try first", if it fails we do the full sequence
-        setLoadingStatus(`Cargando preferencia guardada (${cachedType})...`);
+        if (!backgroundMode) setLoadingStatus(`Cargando preferencia guardada (${cachedType})...`);
         try {
           const res = await fetchWithTimeout(`/api/lyrics?${baseParams}&type=${cachedType}`, { signal });
           if (res.ok) {
@@ -528,7 +528,7 @@ export default function Home() {
         } catch (e) { }
       }
 
-      setLyrics(null);
+      if (!backgroundMode) setLyrics(null);
       await runSearchSequence(0);
 
     } else {
