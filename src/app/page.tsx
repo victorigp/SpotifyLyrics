@@ -60,6 +60,15 @@ export default function Home() {
   const [showQueue, setShowQueue] = useState(false);
   const [preloadedTracks, setPreloadedTracks] = useState<Set<string>>(new Set());
 
+  // --- Debug Logs ---
+  const [logs, setLogs] = useState<string[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
+  const addLog = (msg: string) => {
+    console.log(msg); // Keep console
+    setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 50));
+  };
+  // ------------------
+
   const fetchQueue = async () => {
     if (!session?.accessToken) return;
     try {
@@ -420,6 +429,10 @@ export default function Home() {
     const handleSuccess = (data: any, type: string, skipKVSave = false) => {
       if (signal.aborted) return;
 
+      if (backgroundMode) {
+        addLog(`[Background Success] Found lyrics for ${currentTrack.name} using ${type}`);
+      }
+
       if (!backgroundMode) {
         setLyrics(data);
         setCurrentSearchType(type);
@@ -441,6 +454,7 @@ export default function Home() {
         const type = searchSequence[i];
 
         const displayText = type === "strict" ? "LRCLIB - Exacto" : type === "fuzzy" ? "LRCLIB - Difuso" : "Lyrics.ovh";
+        if (backgroundMode) addLog(`[Background Search] Searching ${currentTrack.name} in ${displayText}`);
         if (!backgroundMode) setLoadingStatus(`Buscando letra en ${displayText}...`);
 
         try {
@@ -546,12 +560,19 @@ export default function Home() {
 
   useEffect(() => {
     if (queue.length > 0) {
-      const nextTracks = queue.slice(0, 2);
+      addLog(`[Queue] Processing queue of ${queue.length} items for reload...`);
+      const nextTracks = queue.slice(0, 5);
       nextTracks.forEach(t => {
         const key = t.artist + t.name;
         if (!preloadedTracks.has(key)) {
+          addLog(`[Preload] Triggering background fetch for: ${t.name} - ${t.artist}`);
+          // 1. Lyrics
           fetchLyricsWithSteps(t, undefined, true);
-          fetch(`/api/video?artist=${encodeURIComponent(t.artist)}&track=${encodeURIComponent(t.name)}&userId=${username || session?.user?.email || "anonymous"}`).catch(e => console.error("Preload video error", e));
+          // 2. Video (Background fetch to warm up cache)
+          fetch(`/api/video?artist=${encodeURIComponent(t.artist)}&track=${encodeURIComponent(t.name)}&userId=${username || session?.user?.email || "anonymous"}`)
+            .then(res => res.ok ? addLog(`[Preload Video] OK for ${t.name}`) : addLog(`[Preload Video] Failed for ${t.name}`))
+            .catch(e => addLog(`Preload video error: ${e}`));
+
           setPreloadedTracks(prev => {
             const newSet = new Set(prev);
             newSet.add(key);
@@ -643,6 +664,21 @@ export default function Home() {
           </div>
         ))}
       </div>
+
+      {/* Logs Overlay */}
+      {showLogs && (
+        <div className="absolute inset-x-0 bottom-0 top-1/2 z-[70] bg-black/90 backdrop-blur-xl p-4 flex flex-col font-mono text-xs border-t border-white/20">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-xl font-bold text-white">Debug Logs</h2>
+            <button onClick={() => setShowLogs(false)} className="text-white p-2">✕</button>
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-1">
+            {logs.map((L, i) => (
+              <div key={i} className="text-green-400 break-words border-b border-white/5 pb-1">{L}</div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Queue Overlay */}
       {showQueue && (
@@ -790,6 +826,14 @@ export default function Home() {
 
 
           {/* Toggle Video Button */}
+          <button
+            onClick={() => setShowLogs(!showLogs)}
+            title="Ver Logs"
+            className={`transition group p-1 md:p-2 drop-shadow-md flex justify-center shrink-0 ${showLogs ? 'text-yellow-400' : 'text-gray-500 hover:text-white'}`}
+          >
+            <span className="text-xl md:text-2xl">🐛</span>
+          </button>
+
           <button onClick={toggleVideoMode} title={videoEnabled ? "Desactivar Vídeo" : "Activar Vídeo"} className="transition group p-1 md:p-2 drop-shadow-md flex justify-center relative hover:scale-110 active:scale-95 duration-200 shrink-0">
             <span className="text-xl md:text-2xl">{videoEnabled ? "🎬" : "📵"}</span>
             {!videoEnabled && (
