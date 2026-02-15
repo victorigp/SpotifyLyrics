@@ -778,9 +778,19 @@ export default function Home() {
                 <div className="absolute left-0 top-0 z-50 bg-black/60 backdrop-blur-md px-4 py-2 rounded-br-2xl flex items-center gap-3 animate-pulse border-b border-r border-white/10 shadow-xl">
                   <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
                   <span className="text-sm font-medium tracking-wide">
-                    {videoProgress.isDiscoveryComplete && videoProgress.total > 0
-                      ? (skipVideoTrigger > 0 ? `Cargando video ${videoProgress.current}/${videoProgress.total}` : "Cargando video")
-                      : "Buscando video..."}
+                    {(() => {
+                      const key = track.artist + track.name;
+                      const isPreloaded = preloadedTracks.has(key);
+                      const isReady = videoProgress.isDiscoveryComplete || isPreloaded;
+
+                      if (!isReady && videoProgress.total === 0) return "Buscando video...";
+
+                      if (skipVideoTrigger > 0 && videoProgress.total > 0) {
+                        return `Cargando video ${videoProgress.current}/${videoProgress.total}`;
+                      }
+
+                      return "Cargando video";
+                    })()}
                   </span>
                 </div>
               )}
