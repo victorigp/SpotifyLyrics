@@ -355,6 +355,7 @@ export default function Home() {
           }
 
           if (!lockingTrackNameRef.current || lockingTrackNameRef.current !== data.track.name) {
+            addLog(`[Polling] Track changed: "${lockingTrackNameRef.current}" -> "${data.track.name}"`);
             lockingTrackNameRef.current = data.track.name;
             if (searchAbortControllerRef.current) {
               searchAbortControllerRef.current.abort();
@@ -382,9 +383,12 @@ export default function Home() {
           }
         } else {
           // If not playing, reset track to show Idle State
-          setTrack(null);
-          lockingTrackNameRef.current = null;
-          if (searchAbortControllerRef.current) searchAbortControllerRef.current.abort();
+          if (lockingTrackNameRef.current !== null) {
+            addLog(`[Polling] Stopped playing (was "${lockingTrackNameRef.current}")`);
+            setTrack(null);
+            lockingTrackNameRef.current = null;
+            if (searchAbortControllerRef.current) searchAbortControllerRef.current.abort();
+          }
         }
       } catch (e) {
         console.error("Polling error:", e);
