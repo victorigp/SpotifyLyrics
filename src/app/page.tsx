@@ -781,15 +781,22 @@ export default function Home() {
                     {(() => {
                       const key = track.artist + track.name;
                       const isPreloaded = preloadedTracks.has(key);
-                      const isReady = videoProgress.isDiscoveryComplete || isPreloaded;
 
-                      if (!isReady && videoProgress.total === 0) return "Buscando video...";
-
-                      if (skipVideoTrigger > 0 && videoProgress.total > 0) {
-                        return `Cargando video ${videoProgress.current}/${videoProgress.total}`;
+                      // Manual Navigation (User clicked Skip/Next)
+                      if (skipVideoTrigger > 0) {
+                        if (videoProgress.isDiscoveryComplete && videoProgress.total > 0) {
+                          return `Cargando video ${videoProgress.current}/${videoProgress.total}`;
+                        }
+                        return "Buscando video...";
                       }
 
-                      return "Cargando video";
+                      // Automatic Loading (First load)
+                      // If preloaded or discovery complete, show simple "Cargando video"
+                      if (isPreloaded || (videoProgress.isDiscoveryComplete && videoProgress.total > 0)) {
+                        return "Cargando video";
+                      }
+
+                      return "Buscando video...";
                     })()}
                   </span>
                 </div>
