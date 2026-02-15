@@ -416,7 +416,9 @@ export default function Home() {
       ]);
 
     const controller = new AbortController();
-    searchAbortControllerRef.current = controller;
+    if (!backgroundMode) {
+      searchAbortControllerRef.current = controller;
+    }
     const signal = controller.signal;
 
     const baseParams = new URLSearchParams({
@@ -467,8 +469,8 @@ export default function Home() {
               return;
             }
           }
-        } catch (e) {
-          // alert(`Error/Timeout en ${displayText}: ` + e);
+        } catch (e: any) {
+          if (backgroundMode) addLog(`[Background Error] ${displayText} failed: ${e.message || e}`);
         }
       }
 
@@ -559,28 +561,44 @@ export default function Home() {
   }, [track, session]);
 
   useEffect(() => {
-    if (queue.length > 0) {
-      addLog(`[Queue] Processing queue of ${queue.length} items for reload...`);
-      const nextTracks = queue.slice(0, 5);
-      nextTracks.forEach(t => {
-        const key = t.artist + t.name;
-        if (!preloadedTracks.has(key)) {
-          addLog(`[Preload] Triggering background fetch for: ${t.name} - ${t.artist}`);
-          // 1. Lyrics
-          fetchLyricsWithSteps(t, undefined, true);
-          // 2. Video (Background fetch to warm up cache)
-          fetch(`/api/video?artist=${encodeURIComponent(t.artist)}&track=${encodeURIComponent(t.name)}&userId=${username || session?.user?.email || "anonymous"}`)
-            .then(res => res.ok ? addLog(`[Preload Video] OK for ${t.name}`) : addLog(`[Preload Video] Failed for ${t.name}`))
-            .catch(e => addLog(`Preload video error: ${e}`));
+    const processQueue = async () => {
+      if (queue.length > 0) {
+        addLog(`[Queue] Processing queue of ${queue.length} items...`);
+        const nextTracks = queue.slice(0, 5);
 
-          setPreloadedTracks(prev => {
-            const newSet = new Set(prev);
-            newSet.add(key);
-            return newSet;
-          });
+        for (const t of nextTracks) {
+          const key = t.artist + t.name;
+          if (!preloadedTracks.has(key)) {
+            // Mark as processed immediately to avoid double-processing if effect fires again
+            setPreloadedTracks(prev => {
+              const newSet = new Set(prev);
+              newSet.add(key);
+              return newSet;
+            });
+
+            addLog(`[Preload] START: ${t.name}`);
+
+            // 1. Lyrics (Sequential to avoid rate limits)
+            try {
+              await fetchLyricsWithSteps(t, undefined, true);
+            } catch (e) {
+              addLog(`[Preload] Lyrics Error for ${t.name}: ${e}`);
+            }
+
+            // 2. Video (Can be concurrent with next iteration, but let's keep it clean)
+            // We don't await video because it's less critical and handled by internal fetch
+            fetch(`/api/video?artist=${encodeURIComponent(t.artist)}&track=${encodeURIComponent(t.name)}&userId=${username || session?.user?.email || "anonymous"}`)
+              .then(res => res.ok ? addLog(`[Preload Video] OK for ${t.name}`) : null)
+              .catch(e => console.error("Video preload", e));
+
+            // Small delay between tracks to be nice to APIs
+            await new Promise(r => setTimeout(r, 1000));
+          }
         }
-      });
-    }
+      }
+    };
+
+    processQueue();
   }, [queue]);
   // -------------------------------------------------------------------
 
