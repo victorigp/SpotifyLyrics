@@ -418,7 +418,7 @@ export default function Home() {
     const fetchWithTimeout = (url: string, options: RequestInit = {}) =>
       Promise.race([
         fetch(url, options),
-        new Promise<Response>((_, reject) => setTimeout(() => reject(new Error('timeout')), backgroundMode ? 5000 : 10000))
+        new Promise<Response>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
       ]);
 
     const controller = new AbortController();
@@ -778,8 +778,8 @@ export default function Home() {
                 <div className="absolute left-0 top-0 z-50 bg-black/60 backdrop-blur-md px-4 py-2 rounded-br-2xl flex items-center gap-3 animate-pulse border-b border-r border-white/10 shadow-xl">
                   <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
                   <span className="text-sm font-medium tracking-wide">
-                    {videoProgress.isDiscoveryComplete && videoProgress.total > 0
-                      ? `Cargando video ${videoProgress.current}/${videoProgress.total}`
+                    {videoProgress.total > 0
+                      ? `Cargando video ${videoProgress.current > 0 ? `${videoProgress.current}/${videoProgress.total}` : ''}`
                       : "Buscando video..."}
                   </span>
                 </div>
