@@ -59,6 +59,9 @@ export default function Home() {
   const [queue, setQueue] = useState<Track[]>([]);
   const [showQueue, setShowQueue] = useState(false);
   const [preloadedTracks, setPreloadedTracks] = useState<Set<string>>(new Set());
+  const nextPollDelayRef = useRef(250);
+  const isPollingRef = useRef(false);
+  const [isRateLimited, setIsRateLimited] = useState(false);
 
   // --- Debug Logs ---
   const [logs, setLogs] = useState<string[]>([]);
@@ -258,6 +261,24 @@ export default function Home() {
     localStorage.setItem("video_enabled", String(newState));
   };
 
+  const setCachedOffset = (artist: string, name: string, offset: number) => {
+    try {
+      const key = `lyrics_offset_${artist}_${name}`;
+      localStorage.setItem(key, offset.toString());
+    } catch (e) { }
+  };
+
+  const saveToKV = async (artist: string, track: string, offset?: number, user?: string, lyrics?: any, source?: string) => {
+    try {
+      await fetch('/api/kv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artist, track, offset, username: user?.trim(), lyrics, source }),
+        cache: 'no-store'
+      });
+    } catch (e) { console.error("Error saving to KV", e); }
+  };
+
   const adjustOffset = (amount: number) => {
     setLyricOffset(prev => {
       const newOffset = prev + amount;
@@ -294,23 +315,7 @@ export default function Home() {
     } catch (e) { return 0; }
   };
 
-  const setCachedOffset = (artist: string, name: string, offset: number) => {
-    try {
-      const key = `lyrics_offset_${artist}_${name}`;
-      localStorage.setItem(key, offset.toString());
-    } catch (e) { }
-  };
 
-  const saveToKV = async (artist: string, track: string, offset?: number, user?: string, lyrics?: any, source?: string) => {
-    try {
-      await fetch('/api/kv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ artist, track, offset, username: user?.trim(), lyrics, source }),
-        cache: 'no-store'
-      });
-    } catch (e) { console.error("Error saving to KV", e); }
-  };
 
   const fetchFromKV = async (artist: string, track: string, user?: string, source?: string) => {
     try {
@@ -328,6 +333,9 @@ export default function Home() {
     lockingTrackNameRef.current = null;
 
     const fetchNowPlaying = async () => {
+      if (isPollingRef.current) return;
+      isPollingRef.current = true;
+
       const requestStartTime = Date.now();
       try {
         let url = `/api/now-playing?`;
@@ -338,7 +346,23 @@ export default function Home() {
         }
 
         const res = await fetch(url);
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (res.status === 429) {
+            console.warn("Rate limited (429). Backing off for 10s...");
+            nextPollDelayRef.current = 10000;
+          } else if (res.status === 401 || res.status === 403) {
+            addLog(`[Auth] Token invalid/expired (${res.status}). Signing out...`);
+            signOut();
+          } else {
+            addLog(`[Polling Error] API returned ${res.status} ${res.statusText}`);
+            nextPollDelayRef.current = 5000; // General error backoff
+          }
+          return;
+        }
+
+        // Success -> Reset delay
+        nextPollDelayRef.current = 250;
+        setIsRateLimited(false);
 
         const data = await res.json();
 
@@ -394,13 +418,32 @@ export default function Home() {
         }
       } catch (e) {
         console.error("Polling error:", e);
+        // If network error, wait 5s before retrying
+        nextPollDelayRef.current = 5000;
+      } finally {
+        isPollingRef.current = false;
       }
     };
 
-    fetchNowPlaying();
-    const interval = setInterval(fetchNowPlaying, LASTFM_POLLING_INTERVAL);
+    // Recursive polling loop
+    let isMounted = true;
+    let timer: any = null;
+
+    const loop = async () => {
+      if (!isMounted) return;
+      if (isSet && (username || session?.accessToken)) {
+        await fetchNowPlaying();
+      }
+      if (isMounted) {
+        timer = setTimeout(loop, nextPollDelayRef.current);
+      }
+    };
+
+    loop();
+
     return () => {
-      clearInterval(interval);
+      isMounted = false;
+      if (timer) clearTimeout(timer);
     }
   }, [isSet, username, session]);
 
@@ -577,6 +620,10 @@ export default function Home() {
   }, [track, session]);
 
   useEffect(() => {
+    if (session) {
+      addLog(`[Session] User: ${session.user?.name}, Product: ${(session as any).product || 'unknown'}`);
+    }
+
     const processQueue = async () => {
       if (queue.length > 0) {
         addLog(`[Queue] Processing queue of ${queue.length} items...`);
@@ -752,6 +799,11 @@ export default function Home() {
 
       <div className="relative z-10 flex flex-col h-full">
         <header className={`h-[5%] min-h-[40px] shrink-0 flex flex-col justify-center items-center px-4 text-center z-20 bg-black/20 backdrop-blur-sm transition-opacity duration-500 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          {isRateLimited && (
+            <div className="bg-red-600/90 text-white px-4 py-1 rounded-full text-xs animate-pulse mb-2 border border-red-400 font-bold shadow-lg pointer-events-auto">
+              ⚠️ Spotify Limitado (Esperando...)
+            </div>
+          )}
           {track ? (
             <div className="max-w-full">
               <h1 className="text-sm md:text-xl truncate drop-shadow-lg text-white">

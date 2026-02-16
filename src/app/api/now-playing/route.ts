@@ -35,9 +35,13 @@ export async function GET(req: NextRequest) {
                 },
             });
 
-        } catch (e) {
-            console.error("Spotify API Error", e);
-            return NextResponse.json({ error: "Spotify API Error" }, { status: 500 });
+        } catch (e: any) {
+            const status = e.status || 500;
+            // Only log errors that are not Rate Limits to keep console clean
+            if (status !== 429) {
+                console.error("Spotify API Error", e);
+            }
+            return NextResponse.json({ error: e.message || "Spotify API Error" }, { status });
         }
     }
 

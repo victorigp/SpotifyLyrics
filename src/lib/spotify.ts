@@ -10,7 +10,9 @@ export async function getSpotifyNowPlaying(accessToken: string) {
     }
 
     if (!res.ok) {
-        throw new Error(`Spotify API Error: ${res.status} ${res.statusText}`);
+        const error: any = new Error(`Spotify API Error: ${res.status} ${res.statusText}`);
+        error.status = res.status;
+        throw error;
     }
 
     return res.json();
