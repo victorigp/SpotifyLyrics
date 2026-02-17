@@ -1,4 +1,4 @@
-import { getLyrics, getLyricsLrclibStrict, getLyricsLrclibFuzzy, getLyricsOvh } from "@/lib/lyrics";
+import { getLyrics, getLyricsLrclibStrict, getLyricsLrclibFuzzy, getLyricsOvh, getLyricsNetease } from "@/lib/lyrics";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -24,6 +24,8 @@ export async function GET(req: NextRequest) {
             lyrics = await getLyricsLrclibFuzzy(track, artist);
         } else if (type === "ovh") {
             lyrics = await getLyricsOvh(track, artist, album || "", duration);
+        } else if (type === "netease") {
+            lyrics = await getLyricsNetease(track, artist);
         } else {
             // Default auto behavior
             lyrics = await getLyrics(track, artist, album || "", duration);
