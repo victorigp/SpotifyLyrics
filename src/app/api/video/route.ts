@@ -108,18 +108,20 @@ export async function GET(req: NextRequest) {
                 return NextResponse.json({ error: 'YouTube API key missing' }, { status: 500 });
             }
 
-            // A. Try original search
-            let query = `${artist} ${track}`;
+            // A. Try CLEANED title first
+            const cleanTrack = cleanTrackTitle(track);
+            let query = `${artist} ${cleanTrack}`;
             let data = await fetchYoutube(query);
 
-            // B. If empty, try cleaned title
-            const cleanTrack = cleanTrackTitle(track);
-            if ((!data?.items || data.items.length === 0) && cleanTrack !== track) {
-                console.log(`[YouTube] Retry with cleaned title: ${cleanTrack}`);
-                const cleanQuery = `${artist} ${cleanTrack}`;
-                const cleanData = await fetchYoutube(cleanQuery);
-                if (cleanData?.items?.length > 0) {
-                    data = cleanData; // Use clean results
+            if (cleanTrack !== track) {
+                if (!data?.items || data.items.length === 0) {
+                    // B. If clean failed (and was different), try ORIGINAL title
+                    console.log(`[YouTube] Clean title failed. Reverting to original: ${track}`);
+                    const origQuery = `${artist} ${track}`;
+                    const origData = await fetchYoutube(origQuery);
+                    if (origData?.items?.length > 0) {
+                        data = origData;
+                    }
                 }
             }
 

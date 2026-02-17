@@ -58,13 +58,13 @@ export async function getLyricsLrclibStrict(
         return null;
     };
 
-    let res = await doSearch(trackName);
+    const cleaned = cleanTrackTitle(trackName);
+    let res = await doSearch(cleaned);
     if (res) return res;
 
-    const cleaned = cleanTrackTitle(trackName);
     if (cleaned !== trackName) {
-        console.log(`[LRCLIB Strict] Retry with cleaned title: "${cleaned}"`);
-        return await doSearch(cleaned);
+        console.log(`[LRCLIB Strict] Retry with original title: "${trackName}"`);
+        return await doSearch(trackName);
     }
 
     return null;
@@ -95,12 +95,12 @@ export async function getLyricsLrclibFuzzy(
         return null;
     };
 
-    let res = await doSearch(trackName);
+    const cleaned = cleanTrackTitle(trackName);
+    let res = await doSearch(cleaned);
     if (res) return res;
 
-    const cleaned = cleanTrackTitle(trackName);
     if (cleaned !== trackName) {
-        return await doSearch(cleaned);
+        return await doSearch(trackName);
     }
     return null;
 }
@@ -140,12 +140,12 @@ export async function getLyricsOvh(
         return null;
     };
 
-    let res = await doSearch(trackName);
+    const cleaned = cleanTrackTitle(trackName);
+    let res = await doSearch(cleaned);
     if (res) return res;
 
-    const cleaned = cleanTrackTitle(trackName);
     if (cleaned !== trackName) {
-        return await doSearch(cleaned);
+        return await doSearch(trackName);
     }
     return null;
 }
@@ -206,12 +206,12 @@ export async function getLyricsNetease(
         return null;
     };
 
-    let res = await doSearch(trackName);
+    const cleaned = cleanTrackTitle(trackName);
+    let res = await doSearch(cleaned);
     if (res) return res;
 
-    const cleaned = cleanTrackTitle(trackName);
     if (cleaned !== trackName) {
-        return await doSearch(cleaned);
+        return await doSearch(trackName);
     }
     return null;
 }
