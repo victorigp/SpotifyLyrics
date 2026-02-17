@@ -1,3 +1,5 @@
+import { cleanTrackTitle } from "@/lib/utils";
+
 export interface LyricsData {
     id: number;
     trackName: string;
@@ -12,6 +14,8 @@ export interface LyricsData {
 }
 
 const LRCLIB_API_URL = "https://lrclib.net/api";
+
+
 
 // Netease API Import (Dynamic require to avoid build issues if types missing)
 let netease_search: any;
@@ -29,28 +33,40 @@ export async function getLyricsLrclibStrict(
     albumName: string,
     durationMs: number
 ): Promise<LyricsData | null> {
-    try {
-        console.log(`[LRCLIB Strict] Searching: ${trackName} - ${artistName}`);
-        let params = new URLSearchParams({
-            track_name: trackName,
-            artist_name: artistName,
-            album_name: albumName,
-            duration: durationMs.toString(),
-        });
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const doSearch = async (tName: string) => {
+        try {
+            console.log(`[LRCLIB Strict] Searching: ${tName} - ${artistName}`);
+            let params = new URLSearchParams({
+                track_name: tName,
+                artist_name: artistName,
+                album_name: albumName,
+                duration: durationMs.toString(),
+            });
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-        // Strict search
-        let response = await fetch(`${LRCLIB_API_URL}/get?${params}`, { signal: controller.signal });
-        clearTimeout(timeoutId);
+            let response = await fetch(`${LRCLIB_API_URL}/get?${params}`, { signal: controller.signal });
+            clearTimeout(timeoutId);
 
-        if (response.ok) {
-            const data = await response.json();
-            return { ...data, source: "LRCLIB" };
+            if (response.ok) {
+                const data = await response.json();
+                return { ...data, source: "LRCLIB" };
+            }
+        } catch (e) {
+            console.error("LRCLIB Strict failed", e);
         }
-    } catch (e) {
-        console.error("LRCLIB Strict failed", e);
+        return null;
+    };
+
+    let res = await doSearch(trackName);
+    if (res) return res;
+
+    const cleaned = cleanTrackTitle(trackName);
+    if (cleaned !== trackName) {
+        console.log(`[LRCLIB Strict] Retry with cleaned title: "${cleaned}"`);
+        return await doSearch(cleaned);
     }
+
     return null;
 }
 
@@ -58,22 +74,33 @@ export async function getLyricsLrclibFuzzy(
     trackName: string,
     artistName: string
 ): Promise<LyricsData | null> {
-    try {
-        const q = `${trackName} ${artistName}`;
-        console.log(`[LRCLIB Fuzzy] Searching: ${q}`);
-        let params = new URLSearchParams({ q: q });
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        let response = await fetch(`${LRCLIB_API_URL}/search?${params}`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (response.ok) {
-            const results = await response.json();
-            if (Array.isArray(results) && results.length > 0) {
-                return { ...results[0], source: "LRCLIB Fuzzy" };
+    const doSearch = async (tName: string) => {
+        try {
+            const q = `${tName} ${artistName}`;
+            console.log(`[LRCLIB Fuzzy] Searching: ${q}`);
+            let params = new URLSearchParams({ q: q });
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            let response = await fetch(`${LRCLIB_API_URL}/search?${params}`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (response.ok) {
+                const results = await response.json();
+                if (Array.isArray(results) && results.length > 0) {
+                    return { ...results[0], source: "LRCLIB Fuzzy" };
+                }
             }
+        } catch (e) {
+            console.error("LRCLIB Fuzzy failed", e);
         }
-    } catch (e) {
-        console.error("LRCLIB Fuzzy failed", e);
+        return null;
+    };
+
+    let res = await doSearch(trackName);
+    if (res) return res;
+
+    const cleaned = cleanTrackTitle(trackName);
+    if (cleaned !== trackName) {
+        return await doSearch(cleaned);
     }
     return null;
 }
@@ -84,30 +111,41 @@ export async function getLyricsOvh(
     albumName: string,
     durationMs: number
 ): Promise<LyricsData | null> {
-    try {
-        console.log(`[OVH] Searching: ${trackName} - ${artistName}`);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        let response = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artistName)}/${encodeURIComponent(trackName)}`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (response.ok) {
-            const data = await response.json();
-            if (data.lyrics) {
-                return {
-                    id: 0,
-                    trackName: trackName,
-                    artistName: artistName,
-                    albumName: albumName,
-                    duration: durationMs / 1000,
-                    instrumental: false,
-                    plainLyrics: data.lyrics,
-                    syncedLyrics: "",
-                    source: "Lyrics.ovh"
-                };
+    const doSearch = async (tName: string) => {
+        try {
+            console.log(`[OVH] Searching: ${tName} - ${artistName}`);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            let response = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artistName)}/${encodeURIComponent(tName)}`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.lyrics) {
+                    return {
+                        id: 0,
+                        trackName: tName,
+                        artistName: artistName,
+                        albumName: albumName,
+                        duration: durationMs / 1000,
+                        instrumental: false,
+                        plainLyrics: data.lyrics,
+                        syncedLyrics: "",
+                        source: "Lyrics.ovh"
+                    };
+                }
             }
+        } catch (e) {
+            console.error("OVH failed", e);
         }
-    } catch (e) {
-        console.error("OVH failed", e);
+        return null;
+    };
+
+    let res = await doSearch(trackName);
+    if (res) return res;
+
+    const cleaned = cleanTrackTitle(trackName);
+    if (cleaned !== trackName) {
+        return await doSearch(cleaned);
     }
     return null;
 }
@@ -118,52 +156,62 @@ export async function getLyricsNetease(
 ): Promise<LyricsData | null> {
     if (!netease_search || !netease_lyric) return null;
 
-    try {
-        const q = `${trackName} ${artistName}`;
-        console.log(`[Netease] Searching: ${q}`);
+    const doSearch = async (tName: string) => {
+        try {
+            const q = `${tName} ${artistName}`;
+            console.log(`[Netease] Searching: ${q}`);
 
-        // 1. Search
-        const searchRes = await netease_search({
-            keywords: q,
-            type: 1, // 1: Song
-            limit: 5
-        });
+            // 1. Search
+            const searchRes = await netease_search({
+                keywords: q,
+                type: 1, // 1: Song
+                limit: 5
+            });
 
-        // Netease result structure check
-        if (searchRes.status === 200 && searchRes.body?.result?.songs) {
-            const songs = searchRes.body.result.songs;
-            if (songs.length > 0) {
-                const bestMatch = songs[0];
-                const songId = bestMatch.id;
+            // Netease result structure check
+            if (searchRes.status === 200 && searchRes.body?.result?.songs) {
+                const songs = searchRes.body.result.songs;
+                if (songs.length > 0) {
+                    const bestMatch = songs[0];
+                    const songId = bestMatch.id;
 
-                console.log(`[Netease] Match found: "${bestMatch.name}" by ${bestMatch.ar?.[0]?.name} (ID: ${songId})`);
+                    console.log(`[Netease] Match found: "${bestMatch.name}" by ${bestMatch.ar?.[0]?.name} (ID: ${songId})`);
 
-                // 2. Get Lyrics
-                const lyricRes = await netease_lyric({ id: songId });
+                    // 2. Get Lyrics
+                    const lyricRes = await netease_lyric({ id: songId });
 
-                if (lyricRes.status === 200 && (lyricRes.body?.lrc?.lyric || lyricRes.body?.tlyric?.lyric)) {
-                    const rawLrc = lyricRes.body.lrc?.lyric || "";
-                    const rawTlyric = lyricRes.body.tlyric?.lyric || ""; // Translation, maybe not needed?
+                    if (lyricRes.status === 200 && (lyricRes.body?.lrc?.lyric || lyricRes.body?.tlyric?.lyric)) {
+                        const rawLrc = lyricRes.body.lrc?.lyric || "";
 
-                    // Simple instrumental check
-                    const isInstrumental = lyricRes.body.nolyric || rawLrc.includes("纯音乐") || rawLrc.includes("Pure Music");
+                        // Simple instrumental check
+                        const isInstrumental = lyricRes.body.nolyric || rawLrc.includes("纯音乐") || rawLrc.includes("Pure Music");
 
-                    return {
-                        id: songId,
-                        trackName: bestMatch.name,
-                        artistName: bestMatch.ar?.[0]?.name || artistName,
-                        albumName: bestMatch.al?.name || "",
-                        duration: bestMatch.dt / 1000,
-                        instrumental: !!isInstrumental,
-                        plainLyrics: rawLrc,
-                        syncedLyrics: rawLrc, // Netease is usually synced
-                        source: "Netease"
-                    };
+                        return {
+                            id: songId,
+                            trackName: bestMatch.name,
+                            artistName: bestMatch.ar?.[0]?.name || artistName,
+                            albumName: bestMatch.al?.name || "",
+                            duration: bestMatch.dt / 1000,
+                            instrumental: !!isInstrumental,
+                            plainLyrics: rawLrc,
+                            syncedLyrics: rawLrc, // Netease is usually synced
+                            source: "Netease"
+                        };
+                    }
                 }
             }
+        } catch (e) {
+            console.error("Netease failed", e);
         }
-    } catch (e) {
-        console.error("Netease failed", e);
+        return null;
+    };
+
+    let res = await doSearch(trackName);
+    if (res) return res;
+
+    const cleaned = cleanTrackTitle(trackName);
+    if (cleaned !== trackName) {
+        return await doSearch(cleaned);
     }
     return null;
 }

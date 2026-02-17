@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from 'redis';
+import { cleanTrackTitle } from '@/lib/utils';
 
 // Initialize Redis client lazily
 const getRedisClient = async () => {
@@ -92,24 +93,53 @@ export async function GET(req: NextRequest) {
         // 3. If no search results in cache, fetch from YouTube
         if (!searchFound || videoIds.length === 0) {
             const apiKey = process.env.YOUTUBE_API_KEY;
+
+            // Helper for youtube fetch
+            const fetchYoutube = async (q: string) => {
+                if (!apiKey) return null;
+                const youtubeUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=25&key=${apiKey}`;
+                const res = await fetch(youtubeUrl);
+                if (!res.ok) return null;
+                return await res.json();
+            };
+
             if (!apiKey) {
                 if (client.isOpen) await client.disconnect();
                 return NextResponse.json({ error: 'YouTube API key missing' }, { status: 500 });
             }
 
-            const query = `${artist} ${track}`; // Modified: Removed 'official video'
-            const youtubeUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=25&key=${apiKey}`;
+            // A. Try original search
+            let query = `${artist} ${track}`;
+            let data = await fetchYoutube(query);
 
-            const ytRes = await fetch(youtubeUrl);
-            const data = await ytRes.json();
-
-            if (!data.items) {
-                console.error("YouTube API Error", data);
-                if (client.isOpen) await client.disconnect();
-                return NextResponse.json({ error: 'YouTube API Error' }, { status: 502 });
+            // B. If empty, try cleaned title
+            const cleanTrack = cleanTrackTitle(track);
+            if ((!data?.items || data.items.length === 0) && cleanTrack !== track) {
+                console.log(`[YouTube] Retry with cleaned title: ${cleanTrack}`);
+                const cleanQuery = `${artist} ${cleanTrack}`;
+                const cleanData = await fetchYoutube(cleanQuery);
+                if (cleanData?.items?.length > 0) {
+                    data = cleanData; // Use clean results
+                }
             }
 
-            videoIds = data.items.map((item: any) => item.id.videoId);
+            if (!data || !data.items) {
+                console.error("YouTube API Error or No Results", data);
+                if (client.isOpen) await client.disconnect();
+                // Return empty instead of error 502 if purely not found?
+                // But legacy behavior was 502 for error. Let's keep it but maybe 404 is better for "not found".
+                // If data is null (API error), 502. If data is {} or {items:[]}, it's just not found.
+                // data from fetchYoutube returns null on !res.ok.
+                if (data === null) {
+                    return NextResponse.json({ error: 'YouTube API Error' }, { status: 502 });
+                }
+                // If it's valid JSON but no items, it means effectively not found, so empty videoIds.
+                videoIds = [];
+            } else {
+                videoIds = data.items.map((item: any) => item.id.videoId);
+            }
+
+            // ... cache logic follows ...
 
             // Cache the results (Shared)
             if (videoIds.length === 0) {
