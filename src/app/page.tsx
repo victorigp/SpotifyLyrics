@@ -342,7 +342,7 @@ export default function Home() {
         if (session?.accessToken) {
           url += `token=${session.accessToken}`;
         } else {
-          url += `username=${encodeURIComponent(username)}`;
+          url += `username=${encodeURIComponent(username)}&syncId=${encodeURIComponent(username)}`;
         }
 
         const res = await fetch(url);
@@ -690,14 +690,14 @@ export default function Home() {
 
           <input
             type="text"
-            placeholder="Introduce tu usuario de Last.fm"
+            placeholder="Usuario Last.fm o Meld Sync ID"
             className="p-4 landscape:p-2 rounded-lg bg-gray-800 text-white border border-gray-700"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
           />
 
           <button onClick={handleSetUser} className="px-8 py-4 landscape:py-2 bg-green-600 rounded-lg font-bold hover:bg-green-700 transition">
-            Entrar con Last.fm
+            Continuar sin Spotify
           </button>
         </div>
       </div>

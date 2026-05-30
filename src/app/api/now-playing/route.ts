@@ -1,3 +1,4 @@
+import { getRedisClient } from "@/lib/redis";
 import { getLastFmNowPlaying } from "@/lib/lastfm";
 import { getSpotifyNowPlaying } from "@/lib/spotify";
 import { NextRequest, NextResponse } from "next/server";
@@ -6,6 +7,44 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const username = searchParams.get("username");
     const token = searchParams.get("token"); // Spotify Access Token
+    const syncId = searchParams.get("syncId"); // Meld Sync ID
+
+    // --- MODE 0: MELD SYNC ---
+    if (syncId) {
+        try {
+            const redis = await getRedisClient();
+            const rawState = await redis.get(`meld_state:${syncId}`);
+            
+            if (rawState) {
+                const state = JSON.parse(rawState);
+                const { isPlaying, progress_ms, timestamp, track } = state;
+
+                // Calculate precise progress
+                const actualProgressMs = isPlaying 
+                    ? progress_ms + (Date.now() - timestamp)
+                    : progress_ms;
+
+                return NextResponse.json({
+                    isPlaying,
+                    source: "meld",
+                    progress_ms: actualProgressMs,
+                    timestamp: Date.now(),
+                    track: {
+                        id: track.id,
+                        name: track.name,
+                        artist: track.artist,
+                        album: track.album,
+                        albumArt: track.thumbnail,
+                        duration: track.duration_ms,
+                    },
+                });
+            }
+            // If not found in Redis, fall through to try Last.fm mode
+        } catch (error) {
+            console.error("Meld Sync Error:", error);
+            // Fall through instead of returning 500 so Last.fm can still work
+        }
+    }
 
     // --- MODE 1: SPOTIFY AUTH ---
     if (token) {
