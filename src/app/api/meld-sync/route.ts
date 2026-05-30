@@ -1,6 +1,10 @@
 import { getRedisClient } from "@/lib/redis";
 import { NextRequest, NextResponse } from "next/server";
 
+export async function GET(req: NextRequest) {
+    return NextResponse.json({ status: "active", message: "Meld Sync API is running and ready to receive POST requests from Android." });
+}
+
 export async function POST(req: NextRequest) {
     try {
         const payload = await req.json();
