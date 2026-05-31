@@ -17,7 +17,9 @@ const LRCLIB_API_URL = "https://lrclib.net/api";
 
 
 
-import { cloudsearch as netease_search, lyric as netease_lyric } from 'NeteaseCloudMusicApi';
+import Netease from 'NeteaseCloudMusicApi';
+const netease_search = Netease.cloudsearch || Netease.search;
+const netease_lyric = Netease.lyric;
 
 export async function getLyricsLrclibStrict(
     trackName: string,
