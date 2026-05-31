@@ -216,14 +216,114 @@ export async function getLyricsNetease(
     return null;
 }
 
+export async function getLyricsKugou(
+    trackName: string,
+    artistName: string,
+    durationMs: number
+): Promise<LyricsData | null> {
+    try {
+        console.log(`[KuGou] Searching: ${trackName} - ${artistName}`);
+        const durationSec = Math.floor(durationMs / 1000);
+        
+        // 1. Search for songs to get hash
+        const q = encodeURIComponent(`${trackName} ${artistName}`);
+        const songSearchUrl = `https://mobileservice.kugou.com/api/v3/search/song?version=9108&plat=0&pagesize=8&showtype=0&keyword=${q}`;
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const songRes = await fetch(songSearchUrl, {
+            headers: { "User-Agent": "Mozilla/5.0" },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        let candidate: { id: string, accesskey: string } | null = null;
+
+        if (songRes.ok) {
+            const songData = await songRes.json();
+            if (songData?.data?.info?.length > 0) {
+                // Find matching duration and hash
+                for (const song of songData.data.info) {
+                    if (durationSec === 0 || Math.abs(song.duration - durationSec) <= 8) {
+                        const hashRes = await fetch(`https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&hash=${song.hash}`, {
+                            headers: { "User-Agent": "Mozilla/5.0" }
+                        });
+                        if (hashRes.ok) {
+                            const hashData = await hashRes.json();
+                            if (hashData?.candidates?.length > 0) {
+                                candidate = hashData.candidates[0];
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Fallback to keyword search if no hash candidate
+        if (!candidate) {
+            const kw = encodeURIComponent(`${trackName} - ${artistName}`);
+            let kwUrl = `https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=${kw}`;
+            if (durationSec > 0) kwUrl += `&duration=${durationSec * 1000}`;
+            
+            const kwRes = await fetch(kwUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+            if (kwRes.ok) {
+                const kwData = await kwRes.json();
+                if (kwData?.candidates?.length > 0) {
+                    candidate = kwData.candidates[0];
+                }
+            }
+        }
+
+        // 3. Download lyrics
+        if (candidate) {
+            const dlUrl = `https://lyrics.kugou.com/download?fmt=lrc&charset=utf8&client=pc&ver=1&id=${candidate.id}&accesskey=${candidate.accesskey}`;
+            const dlRes = await fetch(dlUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+            if (dlRes.ok) {
+                const dlData = await dlRes.json();
+                if (dlData?.content) {
+                    const decoded = Buffer.from(dlData.content, 'base64').toString('utf8');
+                    
+                    // Normalize lyrics (remove empty lines or weird Kugou tags)
+                    const lines = decoded.split('\n')
+                        .map(l => l.trim())
+                        .filter(l => l.length > 0 && !l.match(/.+].+[:：].+/));
+                    
+                    const finalLrc = lines.join('\n');
+                    
+                    return {
+                        id: parseInt(candidate.id) || 0,
+                        trackName,
+                        artistName,
+                        albumName: "",
+                        duration: durationSec,
+                        instrumental: false,
+                        plainLyrics: finalLrc,
+                        syncedLyrics: finalLrc,
+                        source: "KuGou"
+                    };
+                }
+            }
+        }
+    } catch (e) {
+        console.error("KuGou failed", e);
+    }
+    return null;
+}
+
 export async function getLyrics(
     trackName: string,
     artistName: string,
     albumName: string,
     durationMs: number
 ): Promise<LyricsData | null> {
-    // Legacy support or default fallback
-    let res = await getLyricsLrclibStrict(trackName, artistName, albumName, durationMs);
+    // 1. KuGou (Chinese provider, highly synced, huge library)
+    let res = await getLyricsKugou(trackName, artistName, durationMs);
+    if (res) return res;
+
+    // 2. LRCLIB Strict
+    res = await getLyricsLrclibStrict(trackName, artistName, albumName, durationMs);
     if (res) return res;
 
     res = await getLyricsLrclibFuzzy(trackName, artistName);

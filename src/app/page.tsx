@@ -499,15 +499,16 @@ export default function Home() {
     };
 
     const runSearchSequence = async (startIndex: number) => {
-      const searchSequence = ["strict", "fuzzy", "netease", "ovh"];
+      const searchSequence = ["kugou", "strict", "fuzzy", "netease", "ovh"];
 
       for (let i = startIndex; i < searchSequence.length; i++) {
         if (signal.aborted) return;
         const type = searchSequence[i];
 
-        const displayText = type === "strict" ? "LRCLIB - Exacto" :
-          type === "fuzzy" ? "LRCLIB - Difuso" :
-            type === "netease" ? "Netease Cloud" : "Lyrics.ovh";
+        const displayText = type === "kugou" ? "KuGou (NetEase Alternative)" :
+          type === "strict" ? "LRCLIB - Exacto" :
+            type === "fuzzy" ? "LRCLIB - Difuso" :
+              type === "netease" ? "Netease Cloud" : "Lyrics.ovh";
         if (backgroundMode) addLog(`[Background Search] Searching ${currentTrack.name} in ${displayText}`);
         else addLog(`[UI Search] Searching ${currentTrack.name} in ${displayText}`);
 
@@ -581,7 +582,7 @@ export default function Home() {
 
     } else {
       // Manual retry or specific start
-      const searchSequence = ["strict", "fuzzy", "netease", "ovh"];
+      const searchSequence = ["kugou", "strict", "fuzzy", "netease", "ovh"];
       let startIdx = searchSequence.indexOf(specificType);
       // If not found or it's the last one, start from 0? 
       // But typically handleRetrySearch handles the "next" logic. 
@@ -595,17 +596,19 @@ export default function Home() {
   const handleRetrySearch = () => {
     if (!track) return;
 
-    let nextType = "strict";
-    if (currentSearchType === "strict") {
+    let nextType = "kugou";
+    if (currentSearchType === "kugou") {
+      nextType = "strict";
+    } else if (currentSearchType === "strict") {
       nextType = "fuzzy";
     } else if (currentSearchType === "fuzzy") {
       nextType = "netease";
     } else if (currentSearchType === "netease") {
       nextType = "ovh";
     } else if (currentSearchType === "ovh") {
-      nextType = "strict";
+      nextType = "kugou";
     } else {
-      nextType = "strict";
+      nextType = "kugou";
     }
 
     fetchLyricsWithSteps(track, nextType);
