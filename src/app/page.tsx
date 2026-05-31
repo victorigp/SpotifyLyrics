@@ -506,7 +506,7 @@ export default function Home() {
         if (signal.aborted) return;
         const type = searchSequence[i];
 
-        const displayText = type === "kugou" ? "KuGou (NetEase Alternative)" :
+        const displayText = type === "kugou" ? "KuGou" :
           type === "strict" ? "LRCLIB - Exacto" :
             type === "fuzzy" ? "LRCLIB - Difuso" :
               type === "netease" ? "Netease Cloud" : "Lyrics.ovh";

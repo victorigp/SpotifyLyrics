@@ -1,5 +1,11 @@
 import { cleanTrackTitle } from "@/lib/utils";
 
+// These imports MUST remain here! 
+// Next.js (Turbopack) won't inline them because they are in serverExternalPackages.
+// Vercel NFT (Node File Trace) will see them and physically copy them to the Lambda!
+import "xml2js";
+import "pac-proxy-agent";
+
 
 
 export interface LyricsData {
