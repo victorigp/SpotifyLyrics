@@ -33,11 +33,14 @@ export async function GET(req: NextRequest) {
             lyrics = await getLyrics(track, artist, album || "", duration);
         }
 
-        // Return null if not found (200 OK with null body is weird, let's just return null JSON)
+        // Return 404 if not found so the UI logs it properly instead of silently failing
+        if (!lyrics) {
+            return NextResponse.json({ error: `Not found in ${type}` }, { status: 404 });
+        }
         return NextResponse.json(lyrics);
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error in lyrics API:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
     }
 }

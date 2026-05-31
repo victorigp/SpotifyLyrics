@@ -517,12 +517,14 @@ export default function Home() {
         try {
           // alert(`Iniciando ${displayText}...`);
           const res = await fetchWithTimeout(`/api/lyrics?${baseParams}&type=${type}`, { signal });
-          if (res.ok) {
-            const data = await res.json();
-            if (data && !signal.aborted) {
-              handleSuccess(data, type);
-              return;
-            }
+          if (!res.ok) {
+             const errData = await res.json().catch(() => ({}));
+             throw new Error(errData.error || `HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          if (data && !signal.aborted) {
+            handleSuccess(data, type);
+            return;
           }
         } catch (e: any) {
           if (backgroundMode) addLog(`[Background Error] ${displayText} failed: ${e.message || e}`);

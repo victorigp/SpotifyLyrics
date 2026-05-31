@@ -149,9 +149,9 @@ export async function getLyricsNetease(
     let netease_search: any;
     let netease_lyric: any;
     try {
-        const Netease = require('NeteaseCloudMusicApi');
-        netease_search = Netease.cloudsearch || Netease.search;
-        netease_lyric = Netease.lyric;
+        const Netease = await import('NeteaseCloudMusicApi');
+        netease_search = Netease.cloudsearch || Netease.search || Netease.default?.cloudsearch || Netease.default?.search;
+        netease_lyric = Netease.lyric || Netease.default?.lyric;
     } catch (e) {
         console.error("Failed to load Netease API dynamically", e);
         return null;
