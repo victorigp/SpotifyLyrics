@@ -52,6 +52,7 @@ export default function Home() {
   const [currentSearchType, setCurrentSearchType] = useState<string>("auto");
 
   const [trackStartTime, setTrackStartTime] = useState<number | null>(null);
+  const activeSourceRef = useRef<string>("lastfm");
   const [currentTime, setCurrentTime] = useState(0);
   const { data: session } = useSession();
 
@@ -285,7 +286,7 @@ export default function Home() {
       if (track) {
         setCachedOffset(track.artist, track.name, newOffset);
         // Async save to KV (permanent) -> Send source
-        const currentSource = session?.accessToken ? "spotify" : "lastfm";
+        const currentSource = activeSourceRef.current;
         saveToKV(track.artist, track.name, newOffset, username || session?.user?.name || "unknown", undefined, currentSource);
       }
       return newOffset;
@@ -387,6 +388,7 @@ export default function Home() {
             }
 
             setTrack(data.track);
+            activeSourceRef.current = data.source || "lastfm";
             addLog(`[State] Clearing lyrics because track changed`);
             setLyrics(null);
             setSkipVideoTrigger(0); // Reset Skip Counter
@@ -538,7 +540,7 @@ export default function Home() {
       // 0. CHECK KV CACHE (GLOBAL LYRICS + USER OFFSET)
       if (!backgroundMode) setLoadingStatus("Consultando memoria permanente...");
 
-      const currentSource = session?.accessToken ? "spotify" : "lastfm";
+      const currentSource = activeSourceRef.current;
       const kvData = await fetchFromKV(currentTrack.artist, currentTrack.name, username || session?.user?.name || "unknown", currentSource);
 
       if (kvData?.lyrics && !signal.aborted) {
