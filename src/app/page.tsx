@@ -39,6 +39,7 @@ export default function Home() {
   const [skipVideoTrigger, setSkipVideoTrigger] = useState(0);
   const [videoStatus, setVideoStatus] = useState<'searching' | 'playing' | 'error'>('searching');
   const [videoProgress, setVideoProgress] = useState({ current: 0, total: 0, isDiscoveryComplete: false });
+  const [videoSeekMs, setVideoSeekMs] = useState<number | undefined>(undefined);
 
   const handleSkipVideo = () => {
     if (videoEnabled) {
@@ -375,6 +376,8 @@ export default function Home() {
             setTrackStartTime(prev => {
               // If unset, or drifted by > 1s (seek/pause), update it
               if (!prev || Math.abs(prev - absoluteStartTime) > 1000) {
+                // Seek detected — sync video to the new song position
+                setVideoSeekMs(data.progress_ms);
                 return absoluteStartTime;
               }
               return prev;
@@ -394,6 +397,7 @@ export default function Home() {
             setLyrics(null);
             setSkipVideoTrigger(0); // Reset Skip Counter
             setVideoProgress({ current: 0, total: 0, isDiscoveryComplete: false }); // Reset Progress
+            setVideoSeekMs(undefined); // Reset seek sync
 
             setLyricOffset(0);
 
@@ -739,6 +743,7 @@ export default function Home() {
               track={track.name}
               userId={session?.user?.email || session?.user?.name || username || "anonymous"}
               skipTrigger={skipVideoTrigger}
+              seekTimeMs={videoSeekMs}
               onLoadStatus={setVideoStatus}
               onProgress={setVideoProgress}
             />

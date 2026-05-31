@@ -8,16 +8,18 @@ interface VideoBackgroundProps {
     track: string;
     userId: string;
     skipTrigger?: number;
+    seekTimeMs?: number;
     onLoadStatus?: (status: 'searching' | 'playing' | 'error') => void;
     onError?: () => void;
     onProgress?: (progress: { current: number; total: number; isDiscoveryComplete: boolean }) => void;
 }
 
-export default function VideoBackground({ artist, track, userId, skipTrigger, onLoadStatus, onError: onParentError, onProgress }: VideoBackgroundProps) {
+export default function VideoBackground({ artist, track, userId, skipTrigger, seekTimeMs, onLoadStatus, onError: onParentError, onProgress }: VideoBackgroundProps) {
     const [videoQueue, setVideoQueue] = useState<string[]>([]);
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
     const [isReady, setIsReady] = useState(false);
     const playerRef = useRef<any>(null);
+    const videoDurationRef = useRef<number>(0);
 
     const onLoadStatusRef = useRef(onLoadStatus);
     useEffect(() => {
@@ -36,9 +38,7 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
     }, []);
 
     const checkDiscoveryComplete = useCallback((queue: string[]) => {
-        // If remote complete, return true
         if (remoteDiscoveryComplete) return true;
-        // If we have played all videos in the current queue
         return queue.length > 0 && queue.every(id => playedVideoIdsRef.current.has(id));
     }, [remoteDiscoveryComplete]);
 
@@ -62,6 +62,26 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
         }
     }, [skipTrigger, videoQueue.length, currentVideoIndex, getNextValidIndex, checkDiscoveryComplete]);
 
+    // Seek sync: when the parent detects a seek in the song, sync video position
+    const lastSeekRef = useRef<number | undefined>(undefined);
+    useEffect(() => {
+        if (seekTimeMs === undefined || seekTimeMs === lastSeekRef.current) return;
+        lastSeekRef.current = seekTimeMs;
+
+        const player = playerRef.current;
+        if (!player) return;
+
+        const seekTimeSec = seekTimeMs / 1000;
+        const duration = videoDurationRef.current;
+
+        if (duration > 0 && seekTimeSec >= duration) {
+            // Song position is beyond video length — loop back from the start
+            player.seekTo(seekTimeSec % duration, true);
+        } else {
+            player.seekTo(seekTimeSec, true);
+        }
+    }, [seekTimeMs]);
+
     useEffect(() => {
         lastSavedIdRef.current = null;
         lastSavedIdRef.current = null;
@@ -71,8 +91,9 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
         setVideoQueue([]);
         setCurrentVideoIndex(0);
         setIsReady(false);
+        videoDurationRef.current = 0;
         if (onLoadStatusRef.current) onLoadStatusRef.current('searching');
-        if (onProgress) onProgress({ current: 0, total: 0, isDiscoveryComplete: false }); // Reset progress
+        if (onProgress) onProgress({ current: 0, total: 0, isDiscoveryComplete: false });
     }, [artist, track, userId, onProgress]);
 
     useEffect(() => {
@@ -81,7 +102,6 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
             if (videoQueue.length === 0 && onLoadStatusRef.current) onLoadStatusRef.current('searching');
 
             try {
-                // Add timestamp to avoid caching logic issues
                 const res = await fetch(`/api/video?artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(track)}&userId=${encodeURIComponent(userId)}&_t=${Date.now()}`);
                 if (res.ok) {
                     const data = await res.json();
@@ -91,7 +111,6 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
                             setVideoQueue(data.videoIds);
                             setRemoteDiscoveryComplete(!!data.isDiscoveryComplete);
 
-                            // Navigation Logic
                             let startIndex = 0;
                             const prefId = data.preferredVideoId;
 
@@ -108,7 +127,6 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
                             if (startId) playedVideoIdsRef.current.add(startId);
                             setIsReady(false);
 
-                            // Calculate initial completion status
                             const isComplete = !!data.isDiscoveryComplete;
                             if (onProgress) onProgress({ current: startIndex + 1, total: data.videoIds.length, isDiscoveryComplete: isComplete });
                         } else {
@@ -147,6 +165,7 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
             cc_load_policy: 0,
             fs: 0,
             playsinline: 1,
+            disablekb: 1,
             origin: typeof window !== 'undefined' ? window.location.origin : undefined,
         },
     };
@@ -155,6 +174,12 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
         event.target.mute();
         event.target.playVideo();
         playerRef.current = event.target;
+
+        // Cache video duration for seek boundary checks
+        try {
+            const dur = event.target.getDuration();
+            if (dur && dur > 0) videoDurationRef.current = dur;
+        } catch { /* ignore */ }
     };
 
     const lastSavedIdRef = useRef<string | null>(null);
@@ -163,11 +188,16 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
         setIsReady(true);
         if (onLoadStatusRef.current) onLoadStatusRef.current('playing');
 
+        // Update duration when video starts playing (more reliable than onReady)
+        try {
+            const dur = event.target.getDuration();
+            if (dur && dur > 0) videoDurationRef.current = dur;
+        } catch { /* ignore */ }
+
         const isDifferent = currentVideoId !== lastSavedIdRef.current;
         const isIndexZero = currentVideoIndex === 0;
         const hasInteracted = manuallySkippedRef.current;
 
-        // Save if it's a new video AND (it's not the first one OR the user manually navigated to it)
         const shouldSave = isDifferent && (!isIndexZero || hasInteracted);
 
         if (shouldSave && currentVideoId) {
@@ -191,6 +221,8 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
     const onStateChange = (event: any) => {
         if (event.data === 1) handlePlay(event);
         if (event.data === 0) {
+            // Video ended naturally — just loop it from the beginning
+            event.target.seekTo(0, true);
             event.target.playVideo();
         }
     };
@@ -214,8 +246,6 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
 
         const failedId = currentVideoId;
 
-        // Remove failed video from queue
-        // This is key: Reduce the queue size so "Total" reflects remaining candidates.
         const newQueue = videoQueue.filter(id => id !== failedId);
         setVideoQueue(newQueue);
 
@@ -225,7 +255,6 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, on
             return;
         }
 
-        // Find next index (stay on same if middle, reset to 0 if end)
         let nextIndex = currentVideoIndex;
         if (nextIndex >= newQueue.length) nextIndex = 0;
 
