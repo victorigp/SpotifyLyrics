@@ -1,10 +1,5 @@
 import { cleanTrackTitle } from "@/lib/utils";
 
-// These imports MUST remain here! 
-// Next.js (Turbopack) won't inline them because they are in serverExternalPackages.
-// Vercel NFT (Node File Trace) will see them and physically copy them to the Lambda!
-import "xml2js";
-import "pac-proxy-agent";
 
 
 
@@ -156,66 +151,88 @@ export async function getLyricsNetease(
     trackName: string,
     artistName: string
 ): Promise<LyricsData | null> {
-    let netease_search: any;
-    let netease_lyric: any;
-    try {
-        const Netease = require('NeteaseCloudMusicApi');
-        netease_search = Netease.cloudsearch || Netease.search;
-        netease_lyric = Netease.lyric;
-    } catch (e: any) {
-        console.error("Failed to load Netease API dynamically", e);
-        throw new Error(`Netease Init Error: ${e.message}`);
-    }
-
-    if (!netease_search || !netease_lyric) {
-        throw new Error("Netease modules are undefined after import");
-    }
 
     const doSearch = async (tName: string) => {
         try {
             const q = `${tName} ${artistName}`;
             console.log(`[Netease] Searching: ${q}`);
 
-            // 1. Search
-            const searchRes = await netease_search({
-                keywords: q,
-                type: 1, // 1: Song
-                limit: 5
+            // 1. Search using NetEase's public API directly (no library needed)
+            const searchController = new AbortController();
+            const searchTimeout = setTimeout(() => searchController.abort(), 10000);
+
+            const searchParams = new URLSearchParams({
+                s: q,
+                type: "1",
+                limit: "10",
+                offset: "0",
             });
 
-            // Netease result structure check
-            const sBody: any = searchRes.body;
-            if (searchRes.status === 200 && sBody?.result?.songs) {
-                const songs = sBody.result.songs;
-                if (songs.length > 0) {
-                    const bestMatch = songs[0];
-                    const songId = bestMatch.id;
+            const searchRes = await fetch("https://music.163.com/api/search/get", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                    "Referer": "https://music.163.com/",
+                },
+                body: searchParams.toString(),
+                signal: searchController.signal,
+            });
+            clearTimeout(searchTimeout);
 
-                    console.log(`[Netease] Match found: "${bestMatch.name}" by ${bestMatch.ar?.[0]?.name} (ID: ${songId})`);
+            if (!searchRes.ok) {
+                console.error(`[Netease] Search HTTP error: ${searchRes.status}`);
+                return null;
+            }
 
-                    // 2. Get Lyrics
-                    const lyricRes = await netease_lyric({ id: songId });
-                    const lBody: any = lyricRes.body;
+            const searchData = await searchRes.json();
+            const songs = searchData?.result?.songs;
 
-                    if (lyricRes.status === 200 && (lBody?.lrc?.lyric || lBody?.tlyric?.lyric)) {
-                        const rawLrc = lBody.lrc?.lyric || "";
+            if (!songs || songs.length === 0) {
+                console.log(`[Netease] No results for: ${q}`);
+                return null;
+            }
 
-                        // Simple instrumental check
-                        const isInstrumental = lBody.nolyric || rawLrc.includes("纯音乐") || rawLrc.includes("Pure Music");
+            const bestMatch = songs[0];
+            const songId = bestMatch.id;
+            console.log(`[Netease] Match found: "${bestMatch.name}" by ${bestMatch.artists?.[0]?.name} (ID: ${songId})`);
 
-                        return {
-                            id: songId,
-                            trackName: bestMatch.name,
-                            artistName: bestMatch.ar?.[0]?.name || artistName,
-                            albumName: bestMatch.al?.name || "",
-                            duration: bestMatch.dt / 1000,
-                            instrumental: !!isInstrumental,
-                            plainLyrics: rawLrc,
-                            syncedLyrics: rawLrc, // Netease is usually synced
-                            source: "Netease"
-                        };
-                    }
-                }
+            // 2. Get lyrics using NetEase's public lyric API
+            const lyricController = new AbortController();
+            const lyricTimeout = setTimeout(() => lyricController.abort(), 10000);
+
+            const lyricRes = await fetch(`https://music.163.com/api/song/lyric?id=${songId}&lv=1&tv=1`, {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                    "Referer": "https://music.163.com/",
+                },
+                signal: lyricController.signal,
+            });
+            clearTimeout(lyricTimeout);
+
+            if (!lyricRes.ok) {
+                console.error(`[Netease] Lyric HTTP error: ${lyricRes.status}`);
+                return null;
+            }
+
+            const lyricData = await lyricRes.json();
+
+            if (lyricData?.lrc?.lyric || lyricData?.tlyric?.lyric) {
+                const rawLrc = lyricData.lrc?.lyric || "";
+
+                const isInstrumental = lyricData.nolyric || rawLrc.includes("纯音乐") || rawLrc.includes("Pure Music");
+
+                return {
+                    id: songId,
+                    trackName: bestMatch.name,
+                    artistName: bestMatch.artists?.[0]?.name || artistName,
+                    albumName: bestMatch.album?.name || "",
+                    duration: (bestMatch.duration || 0) / 1000,
+                    instrumental: !!isInstrumental,
+                    plainLyrics: rawLrc,
+                    syncedLyrics: rawLrc,
+                    source: "Netease"
+                };
             }
         } catch (e: any) {
             console.error("Netease failed", e);
