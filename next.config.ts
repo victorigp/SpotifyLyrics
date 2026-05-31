@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["NeteaseCloudMusicApi"],
+  serverExternalPackages: ["NeteaseCloudMusicApi", "xml2js", "pac-proxy-agent"],
   images: {
     remotePatterns: [
       {

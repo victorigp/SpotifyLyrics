@@ -1,9 +1,6 @@
 import { cleanTrackTitle } from "@/lib/utils";
 
-// Force Vercel NFT (Node File Trace) to include these transitive dependencies 
-// that NeteaseCloudMusicApi loads dynamically and get pruned otherwise.
-import 'xml2js';
-import 'pac-proxy-agent';
+
 
 export interface LyricsData {
     id: number;
