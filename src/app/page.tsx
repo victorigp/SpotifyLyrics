@@ -368,7 +368,7 @@ export default function Home() {
 
         if (data.isPlaying && data.track) {
           // --- CONTINUOUS SYNC (Every Poll) ---
-          if (session?.accessToken && data.progress_ms !== undefined) {
+          if ((session?.accessToken || data.source === "meld") && data.progress_ms !== undefined) {
             const absoluteStartTime = Date.now() - data.progress_ms;
             setTrackStartTime(prev => {
               // If unset, or drifted by > 1s (seek/pause), update it
@@ -400,7 +400,7 @@ export default function Home() {
             setCurrentSearchType("auto");
 
             // LAST.FM MODE INITIAL SYNC (Only needed once per track)
-            if (!session?.accessToken) {
+            if (!session?.accessToken && data.source !== "meld") {
               const startEstimation = USE_LASTFM_COMPENSATION ? (requestStartTime - LASTFM_LATENCY_OFFSET) : requestStartTime;
               setTrackStartTime(startEstimation);
             }
