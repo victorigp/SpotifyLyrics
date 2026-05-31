@@ -486,7 +486,6 @@ export default function Home() {
         addLog(`[Background Success] Found lyrics for ${currentTrack.name} using ${type}`);
       } else {
         addLog(`[UI Success] Found lyrics for ${currentTrack.name} using ${type}`);
-        addLog(`[Debug] type: ${typeof data}, hasSynced: ${!!data?.syncedLyrics}, hasPlain: ${!!data?.plainLyrics}`);
         setLyrics(data);
         setCurrentSearchType(type);
         setLoadingStatus(null);
