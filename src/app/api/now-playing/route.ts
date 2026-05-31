@@ -24,22 +24,29 @@ export async function GET(req: NextRequest) {
                     ? progress_ms + (Date.now() - timestamp)
                     : progress_ms;
 
-                return NextResponse.json({
-                    isPlaying,
-                    source: "meld",
-                    progress_ms: actualProgressMs,
-                    timestamp: Date.now(),
-                    track: {
-                        id: track.id,
-                        name: track.name,
-                        artist: track.artist,
-                        album: track.album,
-                        albumArt: track.thumbnail,
-                        durationMs: track.duration_ms || 0,
-                    },
-                });
+                // If Meld is actively playing, use it. Otherwise, fall through to check Last.fm.
+                // We also check if the song has "naturally" finished based on duration to prevent getting stuck if Meld crashed
+                const timeSinceLastUpdate = Date.now() - timestamp;
+                const isStale = track.duration_ms > 0 && timeSinceLastUpdate > (track.duration_ms + 30000); // 30s buffer
+
+                if (isPlaying && !isStale) {
+                    return NextResponse.json({
+                        isPlaying,
+                        source: "meld",
+                        progress_ms: actualProgressMs,
+                        timestamp: Date.now(),
+                        track: {
+                            id: track.id,
+                            name: track.name,
+                            artist: track.artist,
+                            album: track.album,
+                            albumArt: track.thumbnail,
+                            durationMs: track.duration_ms || 0,
+                        },
+                    });
+                }
             }
-            // If not found in Redis, fall through to try Last.fm mode
+            // If not found or not playing in Meld, fall through to try Last.fm mode
         } catch (error) {
             console.error("Meld Sync Error:", error);
             // Fall through instead of returning 500 so Last.fm can still work
