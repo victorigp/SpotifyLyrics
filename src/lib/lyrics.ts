@@ -17,15 +17,7 @@ const LRCLIB_API_URL = "https://lrclib.net/api";
 
 
 
-// Netease API Import (Dynamic require to avoid build issues if types missing)
-let netease_search: any;
-let netease_lyric: any;
-try {
-    const Netease = require('NeteaseCloudMusicApi');
-    netease_search = Netease.cloudsearch; // cloudsearch is often better than search
-    if (!netease_search) netease_search = Netease.search;
-    netease_lyric = Netease.lyric;
-} catch (e) { console.error("Failed to load Netease API", e); }
+import { cloudsearch as netease_search, lyric as netease_lyric } from 'NeteaseCloudMusicApi';
 
 export async function getLyricsLrclibStrict(
     trackName: string,
@@ -169,8 +161,9 @@ export async function getLyricsNetease(
             });
 
             // Netease result structure check
-            if (searchRes.status === 200 && searchRes.body?.result?.songs) {
-                const songs = searchRes.body.result.songs;
+            const sBody: any = searchRes.body;
+            if (searchRes.status === 200 && sBody?.result?.songs) {
+                const songs = sBody.result.songs;
                 if (songs.length > 0) {
                     const bestMatch = songs[0];
                     const songId = bestMatch.id;
@@ -179,12 +172,13 @@ export async function getLyricsNetease(
 
                     // 2. Get Lyrics
                     const lyricRes = await netease_lyric({ id: songId });
+                    const lBody: any = lyricRes.body;
 
-                    if (lyricRes.status === 200 && (lyricRes.body?.lrc?.lyric || lyricRes.body?.tlyric?.lyric)) {
-                        const rawLrc = lyricRes.body.lrc?.lyric || "";
+                    if (lyricRes.status === 200 && (lBody?.lrc?.lyric || lBody?.tlyric?.lyric)) {
+                        const rawLrc = lBody.lrc?.lyric || "";
 
                         // Simple instrumental check
-                        const isInstrumental = lyricRes.body.nolyric || rawLrc.includes("纯音乐") || rawLrc.includes("Pure Music");
+                        const isInstrumental = lBody.nolyric || rawLrc.includes("纯音乐") || rawLrc.includes("Pure Music");
 
                         return {
                             id: songId,
