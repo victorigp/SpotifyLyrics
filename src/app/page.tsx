@@ -11,6 +11,7 @@ interface Track {
   artist: string;
   album: string;
   albumArt: string;
+  durationMs?: number;
 }
 
 interface LyricsData {
@@ -476,7 +477,7 @@ export default function Home() {
       track: currentTrack.name,
       artist: currentTrack.artist,
       album: currentTrack.album,
-      duration: "0",
+      duration: currentTrack.durationMs ? currentTrack.durationMs.toString() : "0",
     });
 
     const handleSuccess = (data: any, type: string, skipKVSave = false) => {

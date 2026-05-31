@@ -32,8 +32,10 @@ export async function getLyricsLrclibStrict(
                 track_name: tName,
                 artist_name: artistName,
                 album_name: albumName,
-                duration: durationMs.toString(),
             });
+            if (durationMs > 0) {
+                params.append("duration", durationMs.toString());
+            }
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -152,12 +154,14 @@ export async function getLyricsNetease(
         const Netease = await import('NeteaseCloudMusicApi');
         netease_search = Netease.cloudsearch || Netease.search || Netease.default?.cloudsearch || Netease.default?.search;
         netease_lyric = Netease.lyric || Netease.default?.lyric;
-    } catch (e) {
+    } catch (e: any) {
         console.error("Failed to load Netease API dynamically", e);
-        return null;
+        throw new Error(`Netease Init Error: ${e.message}`);
     }
 
-    if (!netease_search || !netease_lyric) return null;
+    if (!netease_search || !netease_lyric) {
+        throw new Error("Netease modules are undefined after import");
+    }
 
     const doSearch = async (tName: string) => {
         try {
@@ -205,8 +209,9 @@ export async function getLyricsNetease(
                     }
                 }
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error("Netease failed", e);
+            throw new Error(`Netease Search Error: ${e.message}`);
         }
         return null;
     };

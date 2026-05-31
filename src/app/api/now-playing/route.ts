@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
                         artist: track.artist,
                         album: track.album,
                         albumArt: track.thumbnail,
-                        duration: track.duration_ms,
+                        durationMs: track.duration_ms || 0,
                     },
                 });
             }
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
                     artist: item.artists.map((a: any) => a.name).join(", "),
                     album: item.album.name,
                     albumArt: item.album.images[0]?.url,
-                    duration: item.duration_ms,
+                    durationMs: item.duration_ms || 0,
                 },
             });
 
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
                 artist: track.artist["#text"],
                 album: track.album["#text"],
                 albumArt: track.image.find((i: any) => i.size === "extralarge")?.["#text"] || track.image[0]?.["#text"],
-                duration: 0,
+                durationMs: 0,
             },
         });
     } catch (error) {
