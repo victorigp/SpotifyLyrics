@@ -17,9 +17,7 @@ const LRCLIB_API_URL = "https://lrclib.net/api";
 
 
 
-import Netease from 'NeteaseCloudMusicApi';
-const netease_search = Netease.cloudsearch || Netease.search;
-const netease_lyric = Netease.lyric;
+
 
 export async function getLyricsLrclibStrict(
     trackName: string,
@@ -148,6 +146,17 @@ export async function getLyricsNetease(
     trackName: string,
     artistName: string
 ): Promise<LyricsData | null> {
+    let netease_search: any;
+    let netease_lyric: any;
+    try {
+        const Netease = require('NeteaseCloudMusicApi');
+        netease_search = Netease.cloudsearch || Netease.search;
+        netease_lyric = Netease.lyric;
+    } catch (e) {
+        console.error("Failed to load Netease API dynamically", e);
+        return null;
+    }
+
     if (!netease_search || !netease_lyric) return null;
 
     const doSearch = async (tName: string) => {
