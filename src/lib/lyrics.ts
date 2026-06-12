@@ -353,15 +353,15 @@ export async function getLyrics(
     albumName: string,
     durationMs: number
 ): Promise<LyricsData | null> {
-    // 1. KuGou (Chinese provider, highly synced, huge library)
-    let res = await getLyricsKugou(trackName, artistName, durationMs);
-    if (res) return res;
-
-    // 2. LRCLIB Strict
-    res = await getLyricsLrclibStrict(trackName, artistName, albumName, durationMs);
+    // 1. LRCLIB Strict
+    let res = await getLyricsLrclibStrict(trackName, artistName, albumName, durationMs);
     if (res) return res;
 
     res = await getLyricsLrclibFuzzy(trackName, artistName);
+    if (res) return res;
+
+    // KuGou (Chinese provider, highly synced, huge library)
+    res = await getLyricsKugou(trackName, artistName, durationMs);
     if (res) return res;
 
     // Netease (Chinese provider, good backup)

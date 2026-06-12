@@ -504,7 +504,7 @@ export default function Home() {
     };
 
     const runSearchSequence = async (startIndex: number) => {
-      const searchSequence = ["kugou", "strict", "fuzzy", "netease", "ovh"];
+      const searchSequence = ["strict", "fuzzy", "kugou", "netease", "ovh"];
 
       for (let i = startIndex; i < searchSequence.length; i++) {
         if (signal.aborted) return;
@@ -589,7 +589,7 @@ export default function Home() {
 
     } else {
       // Manual retry or specific start
-      const searchSequence = ["kugou", "strict", "fuzzy", "netease", "ovh"];
+      const searchSequence = ["strict", "fuzzy", "kugou", "netease", "ovh"];
       let startIdx = searchSequence.indexOf(specificType);
       // If not found or it's the last one, start from 0? 
       // But typically handleRetrySearch handles the "next" logic. 
@@ -603,19 +603,19 @@ export default function Home() {
   const handleRetrySearch = () => {
     if (!track) return;
 
-    let nextType = "kugou";
-    if (currentSearchType === "kugou") {
-      nextType = "strict";
-    } else if (currentSearchType === "strict") {
+    let nextType = "strict";
+    if (currentSearchType === "strict") {
       nextType = "fuzzy";
     } else if (currentSearchType === "fuzzy") {
+      nextType = "kugou";
+    } else if (currentSearchType === "kugou") {
       nextType = "netease";
     } else if (currentSearchType === "netease") {
       nextType = "ovh";
     } else if (currentSearchType === "ovh") {
-      nextType = "kugou";
+      nextType = "strict";
     } else {
-      nextType = "kugou";
+      nextType = "strict";
     }
 
     fetchLyricsWithSteps(track, nextType);
