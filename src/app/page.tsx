@@ -872,38 +872,40 @@ export default function Home() {
                   </span>
                 </div>
               )}
-              {!lyricsVisible ? null : loadingStatus ? (
-                <div className="text-gray-200 font-medium text-xl italic bg-black/40 p-6 rounded-xl backdrop-blur-md animate-pulse">
-                  {loadingStatus}
-                </div>
-              ) : lyrics ? (
-                lyrics.instrumental ? (
-                  <div className="flex flex-col items-center justify-center gap-6 animate-in fade-in zoom-in duration-500">
-                    <span className="text-8xl md:text-9xl text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">♫</span>
-                    <p className="text-2xl font-bold text-white drop-shadow-md">Instrumental</p>
+              <div className={`w-full h-full flex justify-center items-center transition-opacity duration-500 ${lyricsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                {loadingStatus ? (
+                  <div className="text-gray-200 font-medium text-xl italic bg-black/40 p-6 rounded-xl backdrop-blur-md animate-pulse">
+                    {loadingStatus}
                   </div>
-                ) : (
-                  karaokeMode ? (
-                    <KaraokeView lyrics={lyrics.syncedLyrics || lyrics.plainLyrics} currentTime={effectiveTime} />
+                ) : lyrics ? (
+                  lyrics.instrumental ? (
+                    <div className="flex flex-col items-center justify-center gap-6 animate-in fade-in zoom-in duration-500">
+                      <span className="text-8xl md:text-9xl text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">♫</span>
+                      <p className="text-2xl font-bold text-white drop-shadow-md">Instrumental</p>
+                    </div>
                   ) : (
-                    <FullLyricsView lyrics={lyrics.syncedLyrics || lyrics.plainLyrics} currentTime={effectiveTime} />
+                    karaokeMode ? (
+                      <KaraokeView lyrics={lyrics.syncedLyrics || lyrics.plainLyrics} currentTime={effectiveTime} />
+                    ) : (
+                      <FullLyricsView lyrics={lyrics.syncedLyrics || lyrics.plainLyrics} currentTime={effectiveTime} />
+                    )
                   )
-                )
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-2 bg-black/40 p-6 rounded-xl backdrop-blur-md">
-                  <span className="text-4xl">⚠️</span>
-                  <p className="text-yellow-400 font-bold text-2xl text-center">Letra no encontrada</p>
-                  <div className="flex gap-4 mt-4 pointer-events-auto">
-                    <button
-                      onClick={handleRetrySearch}
-                      className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition"
-                    >
-                      Reintentar Búsqueda
-                    </button>
-                    <p className="text-xs text-gray-400 mt-2">(Prueba buscar en otro proveedor)</p>
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-2 bg-black/40 p-6 rounded-xl backdrop-blur-md">
+                    <span className="text-4xl">⚠️</span>
+                    <p className="text-yellow-400 font-bold text-2xl text-center">Letra no encontrada</p>
+                    <div className="flex gap-4 mt-4 pointer-events-auto">
+                      <button
+                        onClick={handleRetrySearch}
+                        className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition"
+                      >
+                        Reintentar Búsqueda
+                      </button>
+                      <p className="text-xs text-gray-400 mt-2">(Prueba buscar en otro proveedor)</p>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </>
           ) : (
             // Idle State UI
@@ -947,14 +949,7 @@ export default function Home() {
 
 
 
-          {/* Toggle Video Button */}
-          <button
-            onClick={() => setShowLogs(!showLogs)}
-            title="Ver Logs"
-            className={`transition group p-1 md:p-2 drop-shadow-md flex justify-center shrink-0 ${showLogs ? 'text-yellow-400' : 'text-gray-500 hover:text-white'}`}
-          >
-            <span className="text-xl md:text-2xl">🐛</span>
-          </button>
+
 
           <button onClick={toggleVideoMode} title={videoEnabled ? "Desactivar Vídeo" : "Activar Vídeo"} className="transition group p-1 md:p-2 drop-shadow-md flex justify-center relative hover:scale-110 active:scale-95 duration-200 shrink-0">
             <span className="text-xl md:text-2xl">🎬</span>
@@ -1011,6 +1006,15 @@ export default function Home() {
                 ✕
               </span>
             )}
+          </button>
+
+          {/* Toggle Logs/Debug Button */}
+          <button
+            onClick={() => setShowLogs(!showLogs)}
+            title="Ver Logs"
+            className={`transition group p-1 md:p-2 drop-shadow-md flex justify-center shrink-0 ${showLogs ? 'text-yellow-400' : 'text-gray-500 hover:text-white'}`}
+          >
+            <span className="text-xl md:text-2xl">📝</span>
           </button>
 
           <div className="flex justify-center gap-2 md:gap-8 items-center shrink-0">
@@ -1096,6 +1100,10 @@ function AutoSizeText({
     const container = containerRef.current;
     const textEl = textRef.current;
     if (!container || !textEl) return;
+
+    if (container.clientHeight === 0 || container.clientWidth === 0) {
+      return;
+    }
 
     let currentSize = fontSize;
     let iteration = 0;
