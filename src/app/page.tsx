@@ -189,6 +189,7 @@ export default function Home() {
 
   const [loadingStatus, setLoadingStatus] = useState<string | null>(null);
   const [feedbacks, setFeedbacks] = useState<FloatingFeedback[]>([]);
+  const [lyricsVisible, setLyricsVisible] = useState(true);
 
   const lockingTrackNameRef = useRef<string | null>(null);
   const searchAbortControllerRef = useRef<AbortController | null>(null);
@@ -746,6 +747,7 @@ export default function Home() {
               seekTimeMs={videoSeekMs}
               onLoadStatus={setVideoStatus}
               onProgress={setVideoProgress}
+              showLyrics={lyricsVisible}
             />
           </div>
         )}
@@ -870,7 +872,7 @@ export default function Home() {
                   </span>
                 </div>
               )}
-              {loadingStatus ? (
+              {!lyricsVisible ? null : loadingStatus ? (
                 <div className="text-gray-200 font-medium text-xl italic bg-black/40 p-6 rounded-xl backdrop-blur-md animate-pulse">
                   {loadingStatus}
                 </div>
@@ -955,7 +957,7 @@ export default function Home() {
           </button>
 
           <button onClick={toggleVideoMode} title={videoEnabled ? "Desactivar Vídeo" : "Activar Vídeo"} className="transition group p-1 md:p-2 drop-shadow-md flex justify-center relative hover:scale-110 active:scale-95 duration-200 shrink-0">
-            <span className="text-xl md:text-2xl">{videoEnabled ? "🎬" : "📵"}</span>
+            <span className="text-xl md:text-2xl">🎬</span>
             {!videoEnabled && (
               <span className="absolute inset-0 flex items-center justify-center text-red-500 text-3xl md:text-4xl pointer-events-none font-bold select-none drop-shadow-md" style={{ textShadow: "0 0 4px black" }}>
                 ✕
@@ -976,9 +978,9 @@ export default function Home() {
             </div>
           </button>
 
-          <button onClick={() => setKaraokeMode(!karaokeMode)} title="Modo Karaoke" className={`transition group p-1 md:p-2 drop-shadow-md flex justify-center relative shrink-0 ${karaokeMode ? "text-green-400" : "text-gray-300 hover:text-white"}`}>
-            <span className="text-xl md:text-2xl">🎤</span>
-            {!karaokeMode && (
+          <button onClick={() => setLyricsVisible(!lyricsVisible)} title={lyricsVisible ? "Ocultar Letra" : "Mostrar Letra"} className={`transition group p-1 md:p-2 drop-shadow-md flex justify-center relative hover:scale-110 active:scale-95 duration-200 shrink-0 ${lyricsVisible ? "text-white" : "text-gray-300 hover:text-white"}`}>
+            <span className="text-2xl md:text-4xl font-bold drop-shadow-[0_0_2px_black]" style={{ textShadow: "0 0 4px black" }}>♫</span>
+            {!lyricsVisible && (
               <span className="absolute inset-0 flex items-center justify-center text-red-500 text-3xl md:text-4xl pointer-events-none font-bold select-none drop-shadow-md" style={{ textShadow: "0 0 4px black" }}>
                 ✕
               </span>
@@ -987,13 +989,28 @@ export default function Home() {
 
           <button
             onClick={handleRetrySearch}
+            disabled={!lyricsVisible}
             title="Re-buscar Letra"
-            className="text-gray-300 hover:text-white transition group p-1 md:p-2 drop-shadow-md flex justify-center relative hover:scale-110 active:scale-95 duration-200 shrink-0"
+            className={`transition group p-1 md:p-2 drop-shadow-md flex justify-center relative duration-200 shrink-0 ${!lyricsVisible ? 'opacity-30 grayscale cursor-not-allowed text-gray-300' : 'hover:scale-110 active:scale-95 text-gray-300 hover:text-white'}`}
           >
             <div className="relative w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
               <span className="text-2xl md:text-4xl text-white font-bold drop-shadow-[0_0_2px_black]" style={{ textShadow: "0 0 4px black" }}>♫</span>
               <span className="absolute -bottom-1 -right-1 text-xs md:text-lg font-bold bg-black/50 rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center drop-shadow-lg text-white">↻</span>
             </div>
+          </button>
+
+          <button 
+            onClick={() => setKaraokeMode(!karaokeMode)} 
+            disabled={!lyricsVisible}
+            title="Modo Karaoke" 
+            className={`transition group p-1 md:p-2 drop-shadow-md flex justify-center relative duration-200 shrink-0 ${!lyricsVisible ? 'opacity-30 grayscale cursor-not-allowed text-gray-300' : (karaokeMode ? 'text-green-400 hover:scale-110 active:scale-95' : 'text-gray-300 hover:text-white hover:scale-110 active:scale-95')}`}
+          >
+            <span className="text-xl md:text-2xl">🎤</span>
+            {!karaokeMode && (
+              <span className="absolute inset-0 flex items-center justify-center text-red-500 text-3xl md:text-4xl pointer-events-none font-bold select-none drop-shadow-md" style={{ textShadow: "0 0 4px black" }}>
+                ✕
+              </span>
+            )}
           </button>
 
           <div className="flex justify-center gap-2 md:gap-8 items-center shrink-0">

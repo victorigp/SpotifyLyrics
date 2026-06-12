@@ -12,9 +12,10 @@ interface VideoBackgroundProps {
     onLoadStatus?: (status: 'searching' | 'playing' | 'error') => void;
     onError?: () => void;
     onProgress?: (progress: { current: number; total: number; isDiscoveryComplete: boolean }) => void;
+    showLyrics?: boolean;
 }
 
-export default function VideoBackground({ artist, track, userId, skipTrigger, seekTimeMs, onLoadStatus, onError: onParentError, onProgress }: VideoBackgroundProps) {
+export default function VideoBackground({ artist, track, userId, skipTrigger, seekTimeMs, onLoadStatus, onError: onParentError, onProgress, showLyrics = true }: VideoBackgroundProps) {
     const [videoQueue, setVideoQueue] = useState<string[]>([]);
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
     const [isReady, setIsReady] = useState(false);
@@ -287,7 +288,7 @@ export default function VideoBackground({ artist, track, userId, skipTrigger, se
                     iframeClassName="w-full h-full object-cover"
                 />
             </div>
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
+            <div className={`absolute inset-0 ${showLyrics ? 'bg-black/25 backdrop-blur-[2px]' : 'bg-black/0 backdrop-blur-[0px]'}`} />
         </div>
     );
 }
