@@ -138,6 +138,90 @@ export default function Home() {
   }, [track, showControls]);
   // ---------------------------------
 
+  // --- TV Remote Navigation (Spatial Navigation) ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const keys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'];
+      if (!keys.includes(e.key)) return;
+
+      if (document.activeElement?.tagName === 'INPUT' && e.key !== 'Enter') {
+        return; // Let user edit input with arrows
+      }
+
+      const focusables = Array.from(document.querySelectorAll<HTMLElement>('button, input, [tabindex="0"]')).filter(el => {
+        const rect = el.getBoundingClientRect();
+        const style = window.getComputedStyle(el);
+        return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.opacity !== '0' && !el.hasAttribute('disabled');
+      });
+
+      if (focusables.length === 0) return;
+
+      if (e.key === 'Enter') {
+        if (document.activeElement && focusables.includes(document.activeElement as HTMLElement)) {
+          if (document.activeElement.tagName !== 'INPUT') {
+            e.preventDefault();
+            (document.activeElement as HTMLElement).click();
+          }
+        }
+        return;
+      }
+
+      e.preventDefault();
+
+      const current = document.activeElement as HTMLElement;
+      const currentIndex = focusables.indexOf(current);
+
+      if (currentIndex === -1) {
+        focusables[0].focus();
+        return;
+      }
+
+      const currRect = current.getBoundingClientRect();
+      const currCenter = { x: currRect.left + currRect.width / 2, y: currRect.top + currRect.height / 2 };
+
+      let bestMatch: HTMLElement | null = null;
+      let minDistance = Infinity;
+
+      focusables.forEach(cand => {
+        if (cand === current) return;
+        const candRect = cand.getBoundingClientRect();
+        const candCenter = { x: candRect.left + candRect.width / 2, y: candRect.top + candRect.height / 2 };
+
+        let isValid = false;
+        if (e.key === 'ArrowRight' && candCenter.x > currCenter.x + 5) isValid = true;
+        if (e.key === 'ArrowLeft' && candCenter.x < currCenter.x - 5) isValid = true;
+        if (e.key === 'ArrowDown' && candCenter.y > currCenter.y + 5) isValid = true;
+        if (e.key === 'ArrowUp' && candCenter.y < currCenter.y - 5) isValid = true;
+
+        if (isValid) {
+          const dx = candCenter.x - currCenter.x;
+          const dy = candCenter.y - currCenter.y;
+          
+          let distance = 0;
+          if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            distance = Math.abs(dx) + Math.abs(dy) * 4;
+          } else {
+            distance = Math.abs(dy) + Math.abs(dx) * 4;
+          }
+
+          if (distance < minDistance) {
+            minDistance = distance;
+            bestMatch = cand;
+          }
+        }
+      });
+
+      if (bestMatch) {
+        (bestMatch as HTMLElement).focus();
+        showControls(); // Show controls when navigating
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showControls]);
+  // ---------------------------------
+
   // Screen Wake Lock
   useEffect(() => {
     // Detect iOS devices
